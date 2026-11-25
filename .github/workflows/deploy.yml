@@ -28,13 +28,13 @@ jobs:
           WEB_API_KEY: ${{ secrets.WEB_API_KEY }}
           WEB_OAUTH_CLIENT_ID: ${{ secrets.WEB_OAUTH_CLIENT_ID }}
           WEB_OAUTH_CLIENT_SECRET: ${{ secrets.WEB_OAUTH_CLIENT_SECRET }}
-          DIM_API_KEY: ${{ secrets.DIM_API_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_PROJECT: ${{ vars.CLOUDFLARE_PROJECT }}
         run: |
           missing=0
-          for name in WEB_API_KEY WEB_OAUTH_CLIENT_ID WEB_OAUTH_CLIENT_SECRET DIM_API_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_PROJECT; do
+          # DIM_API_KEY is optional: without it SIM runs without DIM Sync (data saved per browser)
+          for name in WEB_API_KEY WEB_OAUTH_CLIENT_ID WEB_OAUTH_CLIENT_SECRET CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_PROJECT; do
             if [ -z "${!name}" ]; then echo "::error::$name is not set - run scripts/setup-secrets.ps1"; missing=1; fi
           done
           exit $missing

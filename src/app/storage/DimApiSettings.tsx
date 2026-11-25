@@ -2,6 +2,7 @@ import { ExportResponse } from '@destinyitemmanager/dim-api-types';
 import { deleteAllApiData, loadDimApiData } from 'app/dim-api/actions';
 import { setApiPermissionGranted } from 'app/dim-api/basic-actions';
 import { exportDimApiData } from 'app/dim-api/dim-api';
+import { dimSyncAvailable } from 'app/dim-api/dim-api-helper';
 import { importDataBackup } from 'app/dim-api/import';
 import { apiPermissionGrantedSelector, dimSyncErrorSelector } from 'app/dim-api/selectors';
 import HelpLink from 'app/dim-ui/HelpLink';
@@ -93,29 +94,40 @@ export default function DimApiSettings() {
       {confirmDialog}
       <h2>{t('Storage.MenuTitle')}</h2>
 
-      <div className={settingClass}>
-        <Checkbox
-          name={'apiPermissionGranted' as keyof Settings}
-          label={
+      {!dimSyncAvailable && (
+        <div className={settingClass}>
+          <div className={fineprintClass}>
+            DIM Sync isn't available on this site, so your tags, loadouts and loadout groups are
+            saved in this browser only. Use Export below to back them up or move them to another
+            browser.
+          </div>
+        </div>
+      )}
+      {dimSyncAvailable && (
+        <div className={settingClass}>
+          <Checkbox
+            name={'apiPermissionGranted' as keyof Settings}
+            label={
+              <>
+                {t('Storage.EnableDimApi')} <HelpLink helpLink={dimApiHelpLink} />
+              </>
+            }
+            value={apiPermissionGranted}
+            onChange={onApiPermissionChange}
+          />
+          <div className={fineprintClass}>{t('Storage.DimApiFinePrint')}</div>
+          {apiPermissionGranted && (
             <>
-              {t('Storage.EnableDimApi')} <HelpLink helpLink={dimApiHelpLink} />
+              <button type="button" className="dim-button" onClick={refreshDimSync}>
+                <AppIcon icon={refreshIcon} /> {t('Storage.RefreshDimSync')}
+              </button>
+              <button type="button" className="dim-button" onClick={deleteAllData}>
+                <AppIcon icon={deleteIcon} /> {t('Storage.DeleteAllData')}
+              </button>
             </>
-          }
-          value={apiPermissionGranted}
-          onChange={onApiPermissionChange}
-        />
-        <div className={fineprintClass}>{t('Storage.DimApiFinePrint')}</div>
-        {apiPermissionGranted && (
-          <>
-            <button type="button" className="dim-button" onClick={refreshDimSync}>
-              <AppIcon icon={refreshIcon} /> {t('Storage.RefreshDimSync')}
-            </button>
-            <button type="button" className="dim-button" onClick={deleteAllData}>
-              <AppIcon icon={deleteIcon} /> {t('Storage.DeleteAllData')}
-            </button>
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
       {profileLoadedError && (
         <ErrorPanel title={t('Storage.ProfileErrorTitle')} error={profileLoadedError} />
       )}

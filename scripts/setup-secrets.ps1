@@ -6,7 +6,7 @@
 #   1. use your Cloudflare API token to create (or find) the Cloudflare Pages project,
 #      and tell you the site's address,
 #   2. wait while you create the Bungie app for that address,
-#   3. register a DIM Sync key for that address,
+#   3. optionally take a DIM Sync key (only the DIM team can issue one for a public site),
 #   4. save everything as encrypted GitHub secrets and start a deploy.
 # Nothing is written to disk. Safe to run again.
 
@@ -117,34 +117,25 @@ $clientSecret = Read-Secret 'Bungie "OAuth client_secret" (input hidden)'
 if (-not $apiKey -or -not $clientId -or -not $clientSecret) { throw 'All three Bungie values are required.' }
 
 Write-Host ''
-Write-Host '=== Step 3: DIM Sync ===' -ForegroundColor Cyan
-$dimApiKey = $null
-while (-not $dimApiKey) {
-  $appName = (Read-Host 'Name for your DIM Sync app (a-z, 0-9, dashes; e.g. seeyuna-sim)').Trim()
-  if ($appName -notmatch '^[a-z0-9-]{3,}$') {
-    Write-Host 'Use at least 3 characters: a-z, 0-9 and - only.' -ForegroundColor Yellow
-    continue
-  }
-  $body = @{ id = $appName; bungieApiKey = $apiKey; origin = $siteOrigin } | ConvertTo-Json
-  try {
-    $response = Invoke-RestMethod -Method Post -Uri 'https://api.destinyitemmanager.com/new_app' `
-      -ContentType 'application/json' -Body $body
-    $dimApiKey = $response.app.dimApiKey
-    if (-not $dimApiKey) { throw 'The DIM API did not return a key.' }
-    Write-Host "DIM Sync key registered for $siteOrigin." -ForegroundColor Green
-  } catch {
-    Write-Host "Couldn't register '$appName': $($_.Exception.Message)" -ForegroundColor Yellow
-    if ($_.ErrorDetails.Message) { Write-Host $_.ErrorDetails.Message -ForegroundColor Yellow }
-    Write-Host 'That name may be taken - try another.' -ForegroundColor Yellow
-  }
-}
+Write-Host '=== Step 3: DIM Sync (optional) ===' -ForegroundColor Cyan
+Write-Host "DIM Sync keys for public websites can only come from the DIM team, so by default"
+Write-Host 'SIM runs without Sync (tags, loadouts and groups are saved in each browser).'
+Write-Host 'If the DIM team has given you a key for this site, paste it now; otherwise press Enter.'
+$dimApiKey = Read-Secret 'DIM Sync key (input hidden, Enter to skip)'
 
 Write-Host ''
 Write-Host '=== Step 4: Save to GitHub and deploy ===' -ForegroundColor Cyan
 gh secret set WEB_API_KEY -R $Repo --body $apiKey
 gh secret set WEB_OAUTH_CLIENT_ID -R $Repo --body $clientId
 gh secret set WEB_OAUTH_CLIENT_SECRET -R $Repo --body $clientSecret
-gh secret set DIM_API_KEY -R $Repo --body $dimApiKey
+if ($dimApiKey) {
+  gh secret set DIM_API_KEY -R $Repo --body $dimApiKey
+  Write-Host 'DIM Sync key saved.' -ForegroundColor Green
+} else {
+  # Remove any old key; fine if there isn't one
+  try { $null = cmd /c "gh secret delete DIM_API_KEY -R $Repo 2>nul" } catch {}
+  Write-Host 'No DIM Sync key - SIM will save data in each browser.' -ForegroundColor Yellow
+}
 gh workflow run deploy.yml -R $Repo
 
 Write-Host ''

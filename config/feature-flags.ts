@@ -37,7 +37,8 @@ export function makeFeatureFlags(env: {
     // Elgato Stream Deck integration
     elgatoStreamDeck: true,
     // Warn when DIM Sync is off and you save some DIM-specific data
-    warnNoSync: true,
+    // (only when DIM Sync is possible - SIM's public site has no DIM Sync key)
+    warnNoSync: env.dev || Boolean(process.env.DIM_API_KEY),
     // Expose the "Automatically add stat mods" Loadout Optimizer toggle
     loAutoStatMods: true,
     // Pretend that Bungie.net is down for maintenance

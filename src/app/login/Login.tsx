@@ -1,3 +1,4 @@
+import { dimSyncAvailable } from 'app/dim-api/dim-api-helper';
 import CheckButton from 'app/dim-ui/CheckButton';
 import ExternalLink from 'app/dim-ui/ExternalLink';
 import { t } from 'app/i18next-t';
@@ -78,31 +79,33 @@ export default function Login() {
           {t('Views.Login.NewAccount')}
         </a>
       </div>
-      <section className={styles.dimSync}>
-        <CheckButton
-          name="apiPermissionGranted"
-          className={styles.dimSyncCheckbox}
-          checked={apiPermissionGranted}
-          onChange={onApiPermissionChange}
-        >
-          {t('Storage.EnableDimApi')}
-        </CheckButton>
-        <div className={styles.fineprint}>
-          {t('Storage.DimApiFinePrint')}{' '}
-          <ExternalLink href={dimApiHelpLink}>{t('Storage.LearnMore')}</ExternalLink>
-        </div>
-        {apiPermissionPreviouslyDisabled && apiPermissionGranted && (
-          <div className={styles.warning}>
-            {t('Views.Login.EnableDimSyncWarning')}
-            <button type="button" className="dim-button" onClick={onExportData}>
-              {t('Storage.Export')}
-            </button>
+      {dimSyncAvailable && (
+        <section className={styles.dimSync}>
+          <CheckButton
+            name="apiPermissionGranted"
+            className={styles.dimSyncCheckbox}
+            checked={apiPermissionGranted}
+            onChange={onApiPermissionChange}
+          >
+            {t('Storage.EnableDimApi')}
+          </CheckButton>
+          <div className={styles.fineprint}>
+            {t('Storage.DimApiFinePrint')}{' '}
+            <ExternalLink href={dimApiHelpLink}>{t('Storage.LearnMore')}</ExternalLink>
           </div>
-        )}
-        {!apiPermissionPreviouslyDisabled && !apiPermissionGranted && (
-          <div className={styles.warning}>{t('Storage.DimSyncNotEnabled')}</div>
-        )}
-      </section>
+          {apiPermissionPreviouslyDisabled && apiPermissionGranted && (
+            <div className={styles.warning}>
+              {t('Views.Login.EnableDimSyncWarning')}
+              <button type="button" className="dim-button" onClick={onExportData}>
+                {t('Storage.Export')}
+              </button>
+            </div>
+          )}
+          {!apiPermissionPreviouslyDisabled && !apiPermissionGranted && (
+            <div className={styles.warning}>{t('Storage.DimSyncNotEnabled')}</div>
+          )}
+        </section>
+      )}
       <section className={styles.section}>
         <ExternalLink href={loginHelpLink}>{t('Views.Login.LearnMore')}</ExternalLink> |{' '}
         <Link to="/privacy">Privacy Policy</Link>

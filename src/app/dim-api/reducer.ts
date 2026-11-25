@@ -14,6 +14,7 @@ import {
   defaultGlobalSettings,
 } from '@destinyitemmanager/dim-api-types';
 import { DestinyAccount } from 'app/accounts/destiny-account';
+import { dimSyncAvailable } from 'app/dim-api/dim-api-helper';
 import { t } from 'app/i18next-t';
 import { convertDimLoadoutToApiLoadout } from 'app/loadout/loadout-type-converters';
 import { showNotification } from 'app/notifications/notifications';
@@ -119,6 +120,10 @@ export interface DimApiState {
 }
 
 function getInitialApiPermissionSetting() {
+  // No DIM Sync key in this build: always local-only
+  if (!dimSyncAvailable) {
+    return false;
+  }
   const setting = localStorage.getItem('dim-api-enabled');
   if (setting === null) {
     return null;

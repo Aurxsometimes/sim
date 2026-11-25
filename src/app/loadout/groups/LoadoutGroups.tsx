@@ -412,7 +412,8 @@ function LoadoutGroupsPage() {
 
       {!apiPermissionGranted && (
         <p className={styles.warning}>
-          <AlertIcon /> DIM Sync is off, so loadout groups won't be saved. Turn it on in Settings.
+          <AlertIcon /> DIM Sync is off, so loadout groups are saved in this browser only. Use
+          Export to back them up.
         </p>
       )}
       {slotCount === 0 && (

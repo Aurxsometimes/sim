@@ -41,6 +41,7 @@ import {
   profileLoadedFromIDB,
   setApiPermissionGranted,
 } from './basic-actions';
+import { dimSyncAvailable } from './dim-api-helper';
 import { DimApiState } from './reducer';
 import { apiPermissionGrantedSelector, makeProfileKeyFromAccount } from './selectors';
 
@@ -133,6 +134,13 @@ function loadGlobalSettings(): ThunkResult {
   return async (dispatch, getState) => {
     // TODO: better to use a state machine (UNLOADED => LOADING => LOADED)
     if (!getState().dimApi.globalSettingsLoaded) {
+      // No DIM Sync key in this build: don't call the DIM API, just mark it disabled
+      if (!dimSyncAvailable) {
+        dispatch(
+          globalSettingsLoaded({ ...getState().dimApi.globalSettings, dimApiEnabled: false }),
+        );
+        return;
+      }
       try {
         const globalSettings = await getGlobalSettings();
         infoLog(TAG, 'globalSettings', globalSettings);
@@ -203,7 +211,7 @@ export function loadDimApiData(
 
     // Show a prompt if the user has not said one way or another whether they want to use the API
     const hasBungieToken = Boolean(getToken());
-    if (getState().dimApi.apiPermissionGranted === null && hasBungieToken) {
+    if (getState().dimApi.apiPermissionGranted === null && hasBungieToken && dimSyncAvailable) {
       waitingForApiPermission = true;
       try {
         const useApi = await promptForApiPermission();

@@ -8,6 +8,13 @@ import { HttpClientConfig } from 'bungie-api-ts/http';
 const DIM_API_HOST = 'https://api.destinyitemmanager.com';
 export const API_KEY = $DIM_FLAVOR !== 'dev' ? $DIM_API_KEY : localStorage.getItem('dimApiKey')!;
 
+/**
+ * Whether this build can use DIM Sync at all. SIM's public website has no DIM Sync key (DIM only
+ * lets you self-register keys for local addresses), so it runs in local-only mode: tags,
+ * loadouts and loadout groups are saved in the browser instead.
+ */
+export const dimSyncAvailable = Boolean(API_KEY);
+
 const localStorageKey = 'dimApiToken';
 
 /**

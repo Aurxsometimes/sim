@@ -54,7 +54,8 @@ const initialState: AccountsState = {
   loadedFromIDB: false,
   needsLogin: !hasValidAuthTokens(),
   needsDeveloper:
-    !DIM_API_KEY ||
+    // The public SIM site runs without a DIM Sync key (local-only); only dev builds require one
+    ($DIM_FLAVOR === 'dev' && !DIM_API_KEY) ||
     !BUNGIE_API_KEY ||
     ($DIM_FLAVOR === 'dev' &&
       (!localStorage.getItem('oauthClientId') || !localStorage.getItem('oauthClientSecret'))),
