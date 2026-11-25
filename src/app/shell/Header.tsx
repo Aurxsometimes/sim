@@ -355,7 +355,7 @@ export default function Header() {
               className={clsx(styles.logo, logoStyles[$DIM_FLAVOR])}
               title={`v${$DIM_VERSION} (${$DIM_FLAVOR})`}
               src={logo}
-              alt="DIM"
+              alt="SIM"
               aria-label="dim"
             />
           </Link>
