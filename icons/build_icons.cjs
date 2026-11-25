@@ -5,7 +5,7 @@ const rimraf = require('rimraf');
 const fs = require('fs');
 const splash = require('./splash.json');
 
-const CACHEBREAKER = '6-2018';
+const CACHEBREAKER = 'sim1';
 
 // Generate all our icon images from SVG. Requires a mac (or a system w/ a shell and rsvg-convert installed).
 execSync('which rsvg-convert || brew install librsvg');

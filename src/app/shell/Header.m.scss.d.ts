@@ -12,6 +12,8 @@ interface CssExports {
   'launchSeparateIcon': string;
   'logo': string;
   'logoLink': string;
+  'logoMark': string;
+  'logoText': string;
   'menu': string;
   'menuItem': string;
   'pr': string;

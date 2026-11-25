@@ -5,17 +5,17 @@ export default function createWebAppManifest(publicPath: string) {
     description: 'An item and loadout manager for Destiny, based on DIM.',
     icons: [
       {
-        src: `${publicPath}android-chrome-192x192-6-2018.png`,
+        src: `${publicPath}android-chrome-192x192-sim1.png`,
         sizes: '192x192',
         type: 'image/png',
       },
       {
-        src: `${publicPath}android-chrome-512x512-6-2018.png`,
+        src: `${publicPath}android-chrome-512x512-sim1.png`,
         sizes: '512x512',
         type: 'image/png',
       },
       {
-        src: `${publicPath}android-chrome-mask-512x512-6-2018.png`,
+        src: `${publicPath}android-chrome-mask-512x512-sim1.png`,
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',

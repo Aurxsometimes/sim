@@ -117,17 +117,17 @@ $header-height: 44px;
   margin-left: 16px !important;
 }
 
+// SIM's logo: the pink diamond mark plus "SIM" in an elegant script font that ships with the OS
+// (Snell Roundhand on Mac, Gabriola on Windows), so nothing extra is downloaded.
 .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 24px;
-  width: 68px;
-  color: var(--theme-accent-primary) !important;
-  font-size: 16px !important;
-  font-weight: bold;
-  font-weight: 400;
+  color: #ff4fa3;
 
   @include phone-portrait {
     height: 24px * 1.2;
-    width: 68px * 1.2;
   }
   &.dev {
     filter: grayscale(100%) brightness(150%);
@@ -138,6 +138,24 @@ $header-height: 44px;
   &.pr {
     filter: hue-rotate(280deg) brightness(107%);
   }
+}
+
+.logoMark {
+  width: 22px;
+  height: 22px;
+}
+
+.logoText {
+  font-family: 'Snell Roundhand', Gabriola, 'Apple Chancery', 'Segoe Script', cursive;
+  font-size: 32px;
+  font-weight: normal;
+  // Gabriola's swash style set, for a flowing cursive "m"
+  font-feature-settings: 'ss05';
+  line-height: 1;
+  letter-spacing: 1px;
+  color: #ff4fa3;
+  // Script fonts sit high; nudge the baseline to line up with the mark
+  margin-top: 6px;
 }
 
 .headerLinks {

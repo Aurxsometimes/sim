@@ -17,7 +17,7 @@ import { compact } from 'app/utils/collections';
 import { useSetCSSVarToHeight } from 'app/utils/hooks';
 import { infoLog } from 'app/utils/log';
 import clsx from 'clsx';
-import logo from 'images/logo-type-right-light.svg';
+import logo from 'images/dimlogo.svg';
 import { AnimatePresence, Transition, Variants, motion } from 'motion/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -351,13 +351,13 @@ export default function Header() {
             )}
           </AnimatePresence>
           <Link to="/" className={clsx(styles.menuItem, styles.logoLink)}>
-            <img
+            <span
               className={clsx(styles.logo, logoStyles[$DIM_FLAVOR])}
               title={`v${$DIM_VERSION} (${$DIM_FLAVOR})`}
-              src={logo}
-              alt="SIM"
-              aria-label="dim"
-            />
+            >
+              <img className={styles.logoMark} src={logo} alt="" />
+              <span className={styles.logoText}>Sim</span>
+            </span>
           </Link>
           <div className={styles.headerLinks} ref={headerLinksRef}>
             {destinyLinks}
