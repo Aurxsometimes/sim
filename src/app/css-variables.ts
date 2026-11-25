@@ -49,6 +49,8 @@ export function createOrnamentDisplayObserver(): StoreObserver<OrnamentDisplay> 
 export function createThemeObserver(): StoreObserver<{ theme: string; isPhonePortrait: boolean }> {
   return {
     id: 'theme-observer',
+    // Apply the saved custom colors at startup, not only when the old theme setting changes
+    runInitially: true,
     equals: deepEqual,
     getObserved: (rs) => ({
       theme: settingsSelector(rs).theme,
