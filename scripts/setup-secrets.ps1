@@ -39,14 +39,36 @@ Write-Host '  Account Resources: Include | (your account)'
 Write-Host ''
 $script:cfToken = Read-Secret 'Cloudflare API token (input hidden)'
 
-$accounts = @((Invoke-Cloudflare GET '/accounts').result)
-if ($accounts.Count -eq 0) { throw 'That token cannot see any Cloudflare account. Check its Account Resources.' }
-$account = $accounts[0]
-if ($accounts.Count -gt 1) {
+# A Pages-only token usually isn't allowed to list accounts, so fall back to asking for the ID.
+$accounts = @()
+try { $accounts = @((Invoke-Cloudflare GET '/accounts').result) } catch {}
+if ($accounts.Count -eq 1) {
+  $account = $accounts[0]
+} elseif ($accounts.Count -gt 1) {
   for ($i = 0; $i -lt $accounts.Count; $i++) { Write-Host "  [$i] $($accounts[$i].name)" }
   $account = $accounts[[int](Read-Host 'Which account')]
+} else {
+  Write-Host ''
+  Write-Host 'Your Account ID is the long code in the dashboard address bar:'
+  Write-Host '  https://dash.cloudflare.com/<ACCOUNT ID>/...'
+  Write-Host '  (also shown under Account home -> "..." next to your account -> Copy account ID)'
+  $accountId = ''
+  while ($accountId -notmatch '^[0-9a-f]{32}$') {
+    $accountId = (Read-Host 'Cloudflare Account ID').Trim().ToLower()
+    if ($accountId -notmatch '^[0-9a-f]{32}$') {
+      Write-Host 'That should be 32 characters of 0-9 and a-f.' -ForegroundColor Yellow
+    }
+  }
+  $account = [pscustomobject]@{ id = $accountId; name = $accountId }
 }
 Write-Host "Using Cloudflare account: $($account.name)" -ForegroundColor Green
+
+# Check the token can actually manage Pages on this account before going further
+try {
+  $null = Invoke-Cloudflare GET "/accounts/$($account.id)/pages/projects"
+} catch {
+  throw "That token can't manage Cloudflare Pages on account $($account.id). Check the token has Account | Cloudflare Pages | Edit for this account, and that the Account ID is right. ($($_.ErrorDetails.Message))"
+}
 
 $project = $null
 while (-not $project) {
