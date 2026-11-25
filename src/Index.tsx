@@ -27,6 +27,14 @@ import registerServiceWorker from './app/register-service-worker';
 import { safariTouchFix } from './app/safari-touch-fix';
 import { createWishlistObserver } from './app/wishlists/observers';
 import { observe } from 'app/store/observerMiddleware';
+
+// If the Bungie app's Redirect URL points at the site root instead of return.html, Bungie
+// sends the login code here. Hand it to return.html, which checks the state and finishes login.
+const authParams = new URLSearchParams(window.location.search);
+if (authParams.get('code') && authParams.get('state')) {
+  window.location.replace(`${$PUBLIC_PATH}return.html${window.location.search}`);
+}
+
 infoLog(
   'app',
   `DIM v${$DIM_VERSION} (${$DIM_FLAVOR}) - Please report any errors to https://www.github.com/DestinyItemManager/DIM/issues`,
