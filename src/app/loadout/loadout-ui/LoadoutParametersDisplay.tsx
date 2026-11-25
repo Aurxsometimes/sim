@@ -1,0 +1,210 @@
+import {
+  LoadoutParameters,
+  SetBonusCounts,
+  StatConstraint,
+} from '@destinyitemmanager/dim-api-types';
+import BungieImage from 'app/dim-ui/BungieImage';
+import { PressTip } from 'app/dim-ui/PressTip';
+import { t } from 'app/i18next-t';
+import { SetPerkIcon } from 'app/item-popup/SetBonus';
+import ExoticArmorChoice, { getLockedExotic } from 'app/loadout-builder/filter/ExoticArmorChoice';
+import { ANY_SET_BONUS, getSpecificSetBonusHashes } from 'app/loadout-builder/types';
+import { useD2Definitions } from 'app/manifest/selectors';
+import {
+  AppIcon,
+  asteriskIcon,
+  equalsIcon,
+  greaterThanIcon,
+  lessThanIcon,
+  searchIcon,
+} from 'app/shell/icons';
+import clsx from 'clsx';
+import { MAX_STAT } from '../known-values';
+import { includesRuntimeStatMods } from '../stats';
+import * as styles from './LoadoutParametersDisplay.m.scss';
+
+export function hasVisibleLoadoutParameters(params: LoadoutParameters | undefined) {
+  return Boolean(
+    params &&
+    (params.query ||
+      params.exoticArmorHash ||
+      params.statConstraints?.length ||
+      (params.mods &&
+        includesRuntimeStatMods(params.mods) &&
+        (params.includeRuntimeStatBenefits ?? true))),
+  );
+}
+
+export default function LoadoutParametersDisplay({ params }: { params: LoadoutParameters }) {
+  const defs = useD2Definitions()!;
+  const { query, exoticArmorHash, statConstraints } = params;
+  const show = hasVisibleLoadoutParameters(params);
+  if (!show) {
+    return null;
+  }
+  const lbParamDesc = (str: string) => `${t('Loadouts.LoadoutParameters')} – ${str}`;
+
+  return (
+    <div className={styles.loParams}>
+      {query && (
+        <PressTip
+          className={styles.loQuery}
+          tooltip={() => lbParamDesc(t('Loadouts.LoadoutParametersQuery'))}
+        >
+          <AppIcon icon={searchIcon} />
+          {query}
+        </PressTip>
+      )}
+      {exoticArmorHash !== undefined && (
+        <PressTip
+          className={styles.loExotic}
+          tooltip={() => {
+            const [, exoticName] = getLockedExotic(defs, exoticArmorHash);
+            return lbParamDesc(t('Loadouts.LoadoutParametersExotic', { exoticName: exoticName! }));
+          }}
+        >
+          <ExoticArmorChoice lockedExoticHash={exoticArmorHash} />
+        </PressTip>
+      )}
+      {params.setBonuses && (
+        <PressTip
+          className={styles.setBonuses}
+          tooltip={() => lbParamDesc(t('Loadouts.SetBonusesDesc'))}
+        >
+          <SetBonuses setBonuses={params.setBonuses} />
+        </PressTip>
+      )}
+      {params.mods &&
+        includesRuntimeStatMods(params.mods) &&
+        (params.includeRuntimeStatBenefits ?? true) && (
+          <PressTip tooltip={t('Loadouts.IncludeRuntimeStatBenefitsDesc')}>
+            {t('Loadouts.IncludeRuntimeStatBenefits')}
+          </PressTip>
+        )}
+      {statConstraints && (
+        <PressTip
+          className={styles.loStats}
+          tooltip={() => lbParamDesc(t('Loadouts.LoadoutParametersStats'))}
+        >
+          {statConstraints.map((s) => (
+            <div key={s.statHash} className={styles.loStat}>
+              <BungieImage src={defs.Stat.get(s.statHash).displayProperties.icon} />
+              <StatConstraintRange statConstraint={s} />
+            </div>
+          ))}
+        </PressTip>
+      )}
+    </div>
+  );
+}
+
+function StatConstraintRange({
+  statConstraint,
+  className,
+}: {
+  statConstraint: StatConstraint;
+  className?: string;
+}) {
+  return (
+    <span className={clsx(className, styles.constraintRange)}>
+      <StatConstraintRangeExpression statConstraint={statConstraint} />
+    </span>
+  );
+}
+
+/** This displays the user's chosen stat constraint as a range, e.g. T4-T9 */
+function StatConstraintRangeExpression({ statConstraint }: { statConstraint: StatConstraint }) {
+  // Post-Edge of Fate stat constraints use minStat/maxStat instead of minTier/maxTier.
+  const min =
+    statConstraint.minStat ??
+    (statConstraint.minTier !== undefined ? statConstraint.minTier * 10 : 0);
+  const max =
+    statConstraint.maxStat ??
+    (statConstraint.maxTier !== undefined ? statConstraint.maxTier * 10 : MAX_STAT);
+
+  if (min === max) {
+    // =min
+    return (
+      <>
+        <AppIcon icon={equalsIcon} />
+        {min}
+      </>
+    );
+  } else if (max === MAX_STAT) {
+    // >= min
+    return (
+      <>
+        <AppIcon icon={greaterThanIcon} />
+        {min}
+      </>
+    );
+  } else if (min === 0) {
+    // <= max
+    return (
+      <>
+        <AppIcon icon={lessThanIcon} />
+        {max}
+      </>
+    );
+  } else {
+    // min-max
+    return (
+      <>
+        {min}-{max}
+      </>
+    );
+  }
+}
+
+function SetBonuses({ setBonuses }: { setBonuses: SetBonusCounts }) {
+  const defs = useD2Definitions()!;
+  const anySetBonusCount = setBonuses[ANY_SET_BONUS];
+
+  return (
+    <>
+      {anySetBonusCount !== undefined && (
+        <div className={styles.setBonus}>
+          <div className={styles.perk}>
+            <span className={styles.anySetBonusIcon}>
+              <AppIcon icon={asteriskIcon} />
+            </span>
+            <span>
+              {t('LoadoutBuilder.AnySetBonusSelection', {
+                pieces: anySetBonusCount,
+              })}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {getSpecificSetBonusHashes(setBonuses).map((setHash) => {
+        const setDef = defs.EquipableItemSet.get(setHash);
+
+        if (!setDef || setDef.redacted) {
+          return null;
+        }
+
+        const setCount = setBonuses[setHash] ?? 0;
+
+        return (
+          <div key={setHash} className={styles.setBonus}>
+            {setDef.setPerks.map((perk) => {
+              if (setCount < perk.requiredSetCount) {
+                return null;
+              }
+
+              const perkDef = defs.SandboxPerk.get(perk.sandboxPerkHash);
+
+              return (
+                <div key={perk.sandboxPerkHash} className={styles.perk}>
+                  <SetPerkIcon perkDef={perkDef} />
+                  <span>{perkDef.displayProperties.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </>
+  );
+}

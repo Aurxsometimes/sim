@@ -1,0 +1,75 @@
+name: Deploy SIM to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy at a time; a newer push cancels an older in-progress one
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: ./.github/actions/setup-pnpm
+
+      - name: Check that the keys are set
+        env:
+          WEB_API_KEY: ${{ secrets.WEB_API_KEY }}
+          WEB_OAUTH_CLIENT_ID: ${{ secrets.WEB_OAUTH_CLIENT_ID }}
+          WEB_OAUTH_CLIENT_SECRET: ${{ secrets.WEB_OAUTH_CLIENT_SECRET }}
+          DIM_API_KEY: ${{ secrets.DIM_API_KEY }}
+        run: |
+          missing=0
+          for name in WEB_API_KEY WEB_OAUTH_CLIENT_ID WEB_OAUTH_CLIENT_SECRET DIM_API_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Repository secret $name is not set"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Build
+        env:
+          # The site lives at https://<user>.github.io/<repo>/
+          PUBLIC_PATH: /${{ github.event.repository.name }}/
+          WEB_API_KEY: ${{ secrets.WEB_API_KEY }}
+          WEB_OAUTH_CLIENT_ID: ${{ secrets.WEB_OAUTH_CLIENT_ID }}
+          WEB_OAUTH_CLIENT_SECRET: ${{ secrets.WEB_OAUTH_CLIENT_SECRET }}
+          DIM_API_KEY: ${{ secrets.DIM_API_KEY }}
+          # GitHub Pages doesn't serve pre-compressed .br files, so skip making them
+          PR_BUILD: '1'
+          CI: 'true'
+        run: |
+          export VERSION="$(node -p "require('./package.json').version").${GITHUB_RUN_NUMBER}"
+          pnpm build:release
+
+      - name: Prepare for GitHub Pages
+        run: |
+          # Single-page app: unknown paths (deep links) load the app, which then routes itself
+          cp dist/index.html dist/404.html
+          # Don't let Jekyll mangle files that start with an underscore
+          touch dist/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

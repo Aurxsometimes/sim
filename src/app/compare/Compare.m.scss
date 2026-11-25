@@ -1,0 +1,87 @@
+@use '../variables' as *;
+
+.organizerLink {
+  composes: dim-button from global;
+  margin-left: auto;
+
+  @include phone-portrait {
+    margin-left: 0;
+  }
+}
+
+.bucket {
+  white-space: nowrap;
+  display: grid;
+  // each item is a column of cells
+  grid-auto-flow: column;
+  // the first column is the header
+  grid-template-columns: 0 min-content;
+  // the rest are item, then separator, repeated forever
+  grid-auto-columns: min-content 1px;
+  // This is necessary - otherwise sticky headers will stop at one screens-width of scrolling
+  width: max-content;
+  // Always give enough room for the item icon
+  min-height: calc(36px + 1lh + var(--item-size) + 8px);
+  > *[role='cell'] {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
+// the header and items live in a horizontal scrolling container
+.scroller {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+
+  :global(.setting) {
+    margin-right: 4px;
+  }
+
+  :global(.dim-button) {
+    // Undo the general mobile "big-buttons"
+    padding: 4px 10px;
+  }
+}
+
+.comparisonModebutton {
+  position: relative;
+  margin-right: 7px;
+  &::after {
+    content: '';
+    position: absolute;
+    border-right: 1px solid #8888;
+    inset: -4px -6px -4px 100%;
+  }
+}
+
+.comparisonModeHint {
+  display: contents;
+}
+[role='listbox'] .comparisonModeHint {
+  display: none;
+}
+:global(.dim-button) .comparisonModeInfo {
+  display: none;
+}
+
+.comparisonModeDescription {
+  display: block;
+  min-width: 200px;
+  opacity: 0.7;
+  font-size: smaller;
+}
+
+:global(.dim-button) .comparisonModeDescription {
+  display: none;
+}
+
+.modIcon {
+  height: 12px;
+}

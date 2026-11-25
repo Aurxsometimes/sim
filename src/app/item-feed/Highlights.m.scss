@@ -1,0 +1,73 @@
+@use '../variables.scss' as *;
+
+.type {
+  > * {
+    display: inline;
+  }
+}
+
+.perks {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 0;
+  gap: 1px;
+
+  > div {
+    margin-left: -3px;
+    padding-left: 4px;
+  }
+
+  .multiPerk {
+    margin-left: 0;
+    padding-left: 1px;
+    box-shadow:
+      -5px 0 0 -3px var(--theme-item-feed-bg),
+      -5px 0 0 -1px #888;
+  }
+}
+
+.perk {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  :global(.item-img) {
+    height: 24px;
+    width: 24px;
+    margin-left: -1px;
+  }
+}
+// copy pasted from src/app/item-popup/PlugTooltip.m.scss with spacing tweaks
+.enhancedArrow {
+  display: flex;
+  &::after {
+    content: '';
+    display: inline-block;
+    width: 9px;
+    height: 16px;
+    vertical-align: text-bottom;
+    mask-image: url('images/enhancedArrow.svg');
+    background-color: $enhancedYellow;
+    margin-left: 1px;
+    margin-top: 4px;
+  }
+}
+
+.stats {
+  composes: flexColumn from '../dim-ui/common.m.scss';
+  margin: 4px 0 0 0;
+  gap: 4px;
+}
+
+.statRow {
+  composes: flexRow from '../dim-ui/common.m.scss';
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.armorStats {
+  :global(.stat) {
+    line-height: 8px;
+  }
+}

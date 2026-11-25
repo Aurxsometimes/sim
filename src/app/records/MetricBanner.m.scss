@@ -1,0 +1,27 @@
+@use '../variables.scss' as *;
+
+.icon {
+  position: relative;
+  width: 21px;
+  height: 53px;
+  flex-shrink: 0;
+}
+
+.bannerIcon {
+  position: absolute;
+  width: 21px;
+}
+
+.scopeIcon {
+  position: absolute;
+  width: 19px;
+  left: 1px;
+  top: 19px;
+}
+
+.metricIcon {
+  position: absolute;
+  width: 19px;
+  left: 1px;
+  top: 34px;
+}

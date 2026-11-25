@@ -1,0 +1,20 @@
+@use '../set-card';
+
+.classType {
+  margin-left: 10px;
+}
+
+.classIcon {
+  height: 24px;
+  vertical-align: middle;
+}
+
+.records {
+  @include set-card.set-card-grid;
+}
+
+.ornaments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

@@ -1,0 +1,146 @@
+import { ArmorBucketHash, ArmorStatHashes, ArmorStats, StatRanges } from '../types';
+
+export interface ProcessResult {
+  /** A small number of the best sets, depending on operation mode. */
+  sets: ProcessArmorSet[];
+  /** The total number of combinations considered. */
+  combos: number;
+  /** The stat ranges of all sets that matched our filters & mod selection. */
+  statRangesFiltered: StatRanges;
+  /** Statistics about how many sets passed/failed the constraints, for error reporting */
+  processInfo: ProcessStatistics;
+}
+
+/**
+ * The minimum information about an item that is needed to consider it when
+ * processing optimal sets. This is calculated from the full item before being
+ * passed into the process worker.
+ */
+export interface ProcessItem {
+  id: string;
+  hash?: number; // Included for debugging purposes, not used in processing
+  name?: string; // Included for debugging purposes, not used in processing
+  isExotic: boolean;
+  isArtifice: boolean;
+  /**
+   * The remaining energy capacity for this item, after assuming energy upgrades
+   * and assigning slot-specific mods. This can be spent on stat mods.
+   */
+  remainingEnergyCapacity: number;
+  power: number;
+  stats: { [statHash: number]: number };
+  /** The activity (raid) mod type that can be slotted on this item, if any. */
+  compatibleActivityMod?: string;
+  setBonus?: number;
+  /** The intrinsic perk plug hashes on this item (e.g. exotic class item perks). */
+  intrinsicPerks?: number[];
+  /**
+   * True if this item has a configurable set bonus selector socket — let it
+   * wildcard a single missing piece of any requested set bonus.
+   */
+  hasSetBonusModSocket?: boolean;
+  /**
+   * This is a pre-set tuning mod on the item. This hash should be passed along
+   * to the ArmorSet.statMods list.
+   */
+  includedTuningMod?: number;
+  /**
+   * For exotics with a tuning socket: the candidate tuning mods and the item's
+   * stats with each one plugged. A valid set has at most one exotic, so the
+   * worker resolves this choice per set instead of multiplying the search.
+   */
+  tuningVariants?: { modHash: number; stats: { [statHash: number]: number } }[];
+}
+
+export type ProcessItemsByBucket = {
+  [bucketHash in ArmorBucketHash]: ProcessItem[];
+};
+
+export interface ProcessArmorSet {
+  /** The overall stats for the loadout as a whole, including subclass, mods and including auto stat mods. */
+  readonly stats: Readonly<ArmorStats>;
+  /** The assumed stats from the armor items themselves only. */
+  readonly armorStats: Readonly<ArmorStats>;
+  /** For each armor type (see ArmorBucketHashes), this is the list of items that could interchangeably be put into this loadout. */
+  readonly armor: readonly string[];
+  /** Which stat mods were added? */
+  readonly statMods: number[];
+
+  /** Sum of enabled stats values. */
+  readonly enabledStatsTotal: number;
+  /** Sum of all stats including disabled/maxed stats. */
+  readonly statsTotal: number;
+  /** Encoded stat mix as a 48-bit integer. */
+  readonly statMix: number;
+  /** Power level of the armor set. */
+  readonly power: number;
+}
+
+export interface ProcessMod {
+  hash: number;
+  /** The energy cost of the mod. */
+  energyCost: number;
+  /** This should only be available in legacy, combat and raid mods */
+  tag?: string;
+}
+
+/**
+ * Data describing the mods that can be automatically picked. This takes into
+ * account the fact that stat mods for different stats cost different amounts of
+ * energy - and sometimes there are even discounted versions that can be
+ * unlocked.
+ */
+export interface AutoModData {
+  generalMods: {
+    [key in ArmorStatHashes]?: {
+      majorMod: { hash: number; cost: number };
+      minorMod: { hash: number; cost: number };
+    };
+  };
+  artificeMods: { [key in ArmorStatHashes]?: number };
+}
+
+export interface LockedProcessMods {
+  generalMods: ProcessMod[];
+  activityMods: ProcessMod[];
+}
+
+export interface RejectionRate {
+  timesFailed: number;
+  timesChecked: number;
+}
+
+export interface ModAssignmentStatistics {
+  /** Mod-tag and mod element counts check. */
+  earlyModsCheck: RejectionRate;
+  /** How many times we couldn't possibly hit the target stats with any number of auto mods picks */
+  autoModsPick: RejectionRate;
+  finalAssignment: {
+    /** How many times we tried mod permutations for permutations that worked. */
+    modAssignmentAttempted: number;
+    /** How many times we failed to assign user-picked slot-independent mods. */
+    modsAssignmentFailed: number;
+    /** How many times we failed to assign auto stat mods. */
+    autoModsAssignmentFailed: number;
+  };
+}
+
+/**
+ * Information about the operation of the worker process.
+ */
+export interface ProcessStatistics {
+  numProcessed: number;
+  numValidSets: number;
+  statistics: {
+    /** Sets skipped for really uninteresting/coarse reasons. */
+    skipReasons: {
+      noExotic: number;
+      doubleExotic: number;
+      skippedLowTier: number;
+      insufficientSetBonus: number;
+      insufficientPerks: number;
+    };
+    lowerBoundsExceeded: RejectionRate;
+    modsStatistics: ModAssignmentStatistics;
+  };
+}

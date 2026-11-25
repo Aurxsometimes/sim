@@ -1,0 +1,44 @@
+@use '../../variables' as *;
+@use '../../dim-ui/tooltip-mixins' as *;
+
+.streamDeckButton {
+  composes: resetButton from '../../dim-ui/common.m.scss';
+  position: relative;
+
+  & img {
+    max-width: 19px;
+    margin: 0 8px;
+    margin-top: 2px;
+    height: auto;
+  }
+}
+
+.connected {
+  background-color: #3fe700;
+  // Just for fun - on Safari, on wide color displays, this is a very bright green
+  background-color: lch(81% 132 132);
+  height: 6px;
+  width: 6px;
+  border-radius: 50%;
+  position: absolute;
+  bottom: -1px;
+  right: 5px;
+}
+
+.error {
+  color: $red;
+  padding: 2px;
+  border-radius: 50%;
+  position: absolute;
+  bottom: -5px;
+  right: 1px;
+  :global(.app-icon) {
+    font-size: 10px !important;
+    display: block;
+  }
+}
+
+.checking {
+  composes: connected;
+  background-color: $dim-brand;
+}

@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "esModuleInterop": true,
+    "outDir": "./dist/",
+    "sourceMap": true,
+    "module": "ESNext",
+    "target": "ESNext",
+    "jsx": "preserve",
+    "moduleResolution": "bundler",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "rootDir": "./src",
+    "types": [
+      "node",
+      "jest",
+      "dom-chromium-installation-events",
+      "dom-screen-wake-lock",
+      "webpack-env"
+    ],
+    "paths": {
+      "app/*": ["./src/app/*"],
+      "data/*": ["./src/data/*"],
+      "images/*": ["./src/images/*"],
+      "destiny-icons/*": ["./destiny-icons/*"],
+      "locale/*": ["./src/locale/*"],
+      "testing/*": ["./src/testing/*"],
+      "docs/*": ["./docs/*"],
+      "*": ["./*"]
+    }
+  },
+  "include": ["./src/**/*", "config/feature-flags.ts"]
+}

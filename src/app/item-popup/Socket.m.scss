@@ -1,0 +1,6 @@
+@use '../variables' as *;
+
+.socket {
+  composes: flexColumn from '../dim-ui/common.m.scss';
+  gap: calc((#{dim-item-px(2)}) * 2);
+}

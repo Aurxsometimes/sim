@@ -1,0 +1,35 @@
+@use '../../variables' as *;
+
+.classButton {
+  // Smaller items to try and make it clearer that these aren't selected.
+  --item-size: 32px;
+  composes: resetButton from '../../dim-ui/common.m.scss';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+
+  color: #999;
+
+  @include interactive($hover: true, $focus: true) {
+    color: white;
+    opacity: 1;
+    rect {
+      stroke: var(--theme-accent-primary);
+    }
+  }
+
+  @include phone-portrait {
+    --item-size: calc(100vw / 8);
+  }
+}
+
+.canDrop {
+  filter: invert(20%);
+  background-color: rgb(255, 255, 255, 0.2);
+}
+
+.isOver {
+  filter: invert(40%);
+  background-color: rgb(255, 255, 255, 0.4);
+}

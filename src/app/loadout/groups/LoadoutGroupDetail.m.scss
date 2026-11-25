@@ -1,0 +1,199 @@
+@use '../../variables.scss' as *;
+
+.detail {
+  --tile-size: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @include phone-portrait {
+    --tile-size: 56px;
+  }
+}
+
+.topBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.groupName {
+  flex: 1;
+  min-width: 160px;
+  text-align: left;
+  padding: 6px 10px;
+  background: rgb(255, 255, 255, 0.05);
+  border: 1px solid rgb(255, 255, 255, 0.15);
+  color: var(--theme-text);
+  font-size: 15px;
+  cursor: text;
+
+  &:hover {
+    border-color: rgb(255, 255, 255, 0.35);
+  }
+}
+
+.equipMenu > button {
+  background-color: #f2b705 !important;
+  color: #000 !important;
+}
+
+.manageMenu > button {
+  color: #e04747 !important;
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+}
+
+.danger {
+  color: #e04747;
+}
+
+.body {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+
+  @include phone-portrait {
+    flex-direction: column-reverse;
+  }
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slotHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.editing {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+}
+
+.blankIcon {
+  display: inline-block;
+  width: 72px;
+  height: 72px;
+  border: 1px dashed rgb(255, 255, 255, 0.25);
+}
+
+.slotNum {
+  font-weight: bold;
+  color: var(--theme-text-secondary);
+  font-size: 16px;
+}
+
+.slotName {
+  font-weight: bold;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.emptySlot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+
+  p {
+    margin: 0;
+  }
+}
+
+.side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sideTitle {
+  margin: 8px 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, var(--tile-size));
+  gap: 6px;
+}
+
+.tile {
+  position: relative;
+  width: var(--tile-size);
+  height: var(--tile-size);
+  padding: 0;
+  border: 1px solid rgb(255, 255, 255, 0.15);
+  background: rgb(255, 255, 255, 0.03);
+  color: var(--theme-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--theme-item-polaroid-hover-border);
+  }
+}
+
+.emptyTile {
+  border-style: dashed;
+  color: rgb(255, 255, 255, 0.25);
+  font-size: 22px;
+}
+
+.sideHint {
+  margin: 0;
+  max-width: calc(4 * var(--tile-size) + 18px);
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+}
+
+.target:hover,
+.target:focus-visible {
+  border: 2px dashed #f2b705;
+}
+
+.selected {
+  outline: 2px solid #f2b705;
+  outline-offset: 1px;
+}
+
+.slotNumber {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow:
+    0 0 3px #000,
+    0 0 3px #000;
+  color: #fff;
+}

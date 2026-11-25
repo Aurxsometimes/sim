@@ -1,0 +1,69 @@
+@use '../../variables' as *;
+
+.container {
+  --set-bonus-icon-size: 34px;
+  padding: 10px 10px 16px 10px;
+  gap: 14px;
+}
+
+.setBonuses {
+  --set-bonus-icon-size: 27px;
+  composes: flexColumn from '../../dim-ui/common.m.scss';
+  gap: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+
+  // Don't let the individual set bonuses span the whole width
+  > * > * {
+    max-width: 50%;
+  }
+}
+
+.setCount {
+  color: var(--theme-text-secondary);
+  font-weight: normal;
+  font-size: 12px;
+}
+
+.anySetBonus {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px;
+  gap: 3px;
+  white-space: nowrap;
+  background-color: var(--theme-item-popup-panel-bg);
+}
+
+.anySetBonusIcon {
+  composes: perkIcon from '../../item-popup/SetBonus.m.scss';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  font-size: calc(var(--set-bonus-icon-size, 24px) * 0.45);
+}
+
+.activeAnySetBonusIcon {
+  composes: activePerk from '../../item-popup/SetBonus.m.scss';
+}
+
+.footer {
+  composes: flexRow from '../../dim-ui/common.m.scss';
+  align-items: center;
+}
+
+.submitButton {
+  composes: dim-button from global;
+  padding-right: 16px;
+  padding-left: 16px;
+  margin-right: 8px;
+}
+
+.selectedBonuses {
+  --item-size: 32px;
+  --set-bonus-icon-size: 27px;
+  gap: 10px;
+}

@@ -1,0 +1,227 @@
+import { getToken } from 'app/bungie-api/oauth-tokens';
+import { clarityDiscordLinkDirect, clarityLinkDirect } from 'app/clarity/about';
+import StaticPage from 'app/dim-ui/StaticPage';
+import TranslatedText from 'app/dim-ui/TranslatedText';
+import { t } from 'app/i18next-t';
+import { isAppStoreVersion } from 'app/utils/browsers';
+import { usePageTitle } from 'app/utils/hooks';
+import { systemInfo } from 'app/utils/system-info';
+import logo from 'images/dimlogo.svg';
+import { useEffect } from 'react';
+import { Link } from 'react-router';
+import ExternalLink from '../dim-ui/ExternalLink';
+import * as styles from './About.m.scss';
+import { AppIcon, faDiscord, faGithub, faTshirt, heartIcon, helpIcon } from './icons';
+import { discordLink, userGuideLink } from './links';
+
+const githubLinkDirect = 'https://github.com/DestinyItemManager/DIM/';
+const crowdinLinkDirect =
+  'https://crowdin.com/project/destiny-item-manager/invite?h=117dfaeab15a7795e24259903e677f8a2807461';
+const bungieLinkDirect = 'https://www.bungie.net';
+const openCollectiveLinkDirect = 'https://opencollective.com/dim';
+const storeLinkDirect = 'https://www.designbyhumans.com/shop/DestinyItemManager/';
+
+const githubLink = <ExternalLink href={githubLinkDirect}>GitHub</ExternalLink>;
+const crowdinLink = <ExternalLink href={crowdinLinkDirect}>Crowdin</ExternalLink>;
+const bungieLink = <ExternalLink href={bungieLinkDirect}>Bungie.net</ExternalLink>;
+const openCollectiveLink = (
+  <ExternalLink href={openCollectiveLinkDirect}>OpenCollective</ExternalLink>
+);
+const storeLink = <ExternalLink href={storeLinkDirect}>DesignByHumans</ExternalLink>;
+const clarityLink = <ExternalLink href={clarityLinkDirect}>Clarity</ExternalLink>;
+const clarityDiscordLink = (
+  <ExternalLink href={clarityDiscordLinkDirect}>Clarity Discord Server</ExternalLink>
+);
+
+export default function About() {
+  usePageTitle(t('Header.About'));
+  // The App Store version can't show donation links I guess?
+  const iOSApp = isAppStoreVersion();
+
+  useEffect(() => {
+    if (iOSApp) {
+      return;
+    }
+    const script = document.createElement('script');
+
+    script.src =
+      'https://opencollective.com/dim/banner.js?style={"a":{"display":"none"}, "h2":{"color":"white"}}';
+    script.async = true;
+
+    document.getElementById('opencollective')!.appendChild(script);
+
+    return () => {
+      delete window.OC;
+    };
+  }, [iOSApp]);
+
+  const token = getToken();
+  return (
+    <StaticPage className={styles.about}>
+      <div className={styles.header}>
+        <img src={logo} className={styles.logo} alt="DIM Logo" height="48" width="48" />
+        <h1>
+          <span>{t('Views.About.Header')}</span>
+        </h1>
+        <Link to="/whats-new">
+          <span>
+            {t('Views.About.Version', {
+              version: $DIM_VERSION,
+              flavor: $DIM_FLAVOR,
+              date: new Date($DIM_BUILD_DATE).toLocaleString(),
+            })}
+          </span>
+        </Link>
+        <br />
+        <span>{systemInfo}</span> <Link to="/debug">Debug</Link>
+      </div>
+      <p>{t('Views.About.HowItsMade')}</p>
+      {$DIM_FLAVOR === 'release' && <p>{t(`Views.About.Schedule.release`)}</p>}
+      {$DIM_FLAVOR === 'beta' && <p>{t(`Views.About.Schedule.beta`)}</p>}
+      {$DIM_FLAVOR === 'pr' && (
+        <p>
+          <a href={`https://github.com/DestinyItemManager/DIM/pull${$PUBLIC_PATH}`}>
+            Pull Request #{$PUBLIC_PATH.replaceAll('/', '')}
+          </a>
+        </p>
+      )}
+      <ul>
+        <li>{t('Views.About.BungieCopyright')}</li>
+        <li>
+          <Link to="/privacy">DIM Privacy Policy</Link>
+        </li>
+        {token && (
+          <li>
+            <ExternalLink
+              href={`https://www.bungie.net/en/Profile/ApplicationHistory/254/${token.bungieMembershipId}`}
+            >
+              {t('Views.About.APIHistory')}
+            </ExternalLink>
+          </li>
+        )}
+        <li>
+          <TranslatedText
+            text={t('Views.About.CommunityInsight')}
+            values={{ clarityLink, clarityDiscordLink }}
+          />
+        </li>
+      </ul>
+      <div className={styles.social}>
+        {!iOSApp && (
+          <div>
+            <h2>
+              <ExternalLink href={openCollectiveLinkDirect}>
+                <AppIcon icon={heartIcon} />
+                {t('Views.Support.Support')}
+              </ExternalLink>
+            </h2>
+            <div>
+              <TranslatedText
+                text={t('Views.Support.OpenCollective')}
+                values={{ link: openCollectiveLink }}
+              />
+            </div>
+          </div>
+        )}
+        <div>
+          <h2>
+            <ExternalLink href={userGuideLink}>
+              <AppIcon icon={helpIcon} />
+              {t('Views.About.Wiki')}
+            </ExternalLink>
+          </h2>
+          {t('Views.About.WikiHelp')} <br />
+        </div>
+        {!iOSApp && (
+          <div>
+            <h2>
+              <ExternalLink href={storeLinkDirect}>
+                <AppIcon icon={faTshirt} />
+                {t('Header.Shop')}
+              </ExternalLink>
+            </h2>
+            <div>
+              <TranslatedText text={t('Views.Support.Store')} values={{ link: storeLink }} />
+            </div>
+          </div>
+        )}
+        <div>
+          <h2>
+            <ExternalLink href={discordLink}>
+              <AppIcon icon={faDiscord} />
+              {t('Views.About.Discord')}
+            </ExternalLink>
+          </h2>
+          {t('Views.About.DiscordHelp')}
+        </div>
+        <div>
+          <h2>
+            <ExternalLink href={githubLinkDirect}>
+              <AppIcon icon={faGithub} />
+              {t('Views.About.GitHub')}
+            </ExternalLink>
+          </h2>
+          <div>
+            <TranslatedText text={t('Views.About.GitHubHelp')} values={{ link: githubLink }} />
+          </div>
+        </div>
+        <div>
+          <h2>
+            <ExternalLink href={crowdinLinkDirect}>{t('Views.About.Translation')}</ExternalLink>
+          </h2>
+          <div>
+            <TranslatedText
+              text={t('Views.About.TranslationText')}
+              values={{ link: crowdinLink }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <h2>{t('Views.About.FAQ')}</h2>
+      <dl>
+        <dt>{t('Views.About.FAQMobile')}</dt>
+        <dd>{t('Views.About.FAQMobileAnswer')}</dd>
+        <dt>{t('Views.About.FAQLogout')}</dt>
+        <dd>{t('Views.About.FAQLogoutAnswer')}</dd>
+        <dt>{t('Views.About.FAQKeyboard')}</dt>
+        <dd>{t('Views.About.FAQKeyboardAnswer')}</dd>
+        <dt>{t('Views.About.FAQLostItem')}</dt>
+        <dd>
+          <div>
+            <TranslatedText
+              text={t('Views.About.FAQLostItemAnswer')}
+              values={{ link: bungieLink }}
+            />
+          </div>
+          {token && (
+            <p>
+              <ExternalLink
+                href={`https://www.bungie.net/en/Profile/ApplicationHistory/254/${token.bungieMembershipId}`}
+              >
+                {t('Views.About.APIHistory')}
+              </ExternalLink>
+            </p>
+          )}
+        </dd>
+        <dt>{t('Views.About.FAQAccess')}</dt>
+        <dd>{t('Views.About.FAQAccessAnswer')}</dd>
+      </dl>
+
+      {!iOSApp && (
+        <>
+          <h1>{t('Views.Support.Support')}</h1>
+          <p>{t('Views.Support.FreeToDownload')}</p>
+          <p>
+            <TranslatedText
+              text={t('Views.Support.OpenCollective')}
+              values={{ link: openCollectiveLink }}
+            />{' '}
+          </p>
+          {t('Views.Support.BackersDetail')}
+        </>
+      )}
+      <div id="opencollective" />
+    </StaticPage>
+  );
+}

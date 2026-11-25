@@ -1,0 +1,69 @@
+@use '../../variables' as *;
+
+.subclassContainer {
+  --item-icon-size: calc(0.8 * var(--item-size));
+  composes: flexRow from '../../dim-ui/common.m.scss';
+  gap: var(--item-margin);
+
+  @include phone-portrait {
+    --loadout-edit-subclass-columns: 5;
+    --item-icon-size: calc(
+      (
+          (100vw - var(--inventory-column-padding) * 2 - var(--item-size)) /
+            var(--loadout-edit-subclass-columns)
+        ) - var(--item-margin)
+    );
+    max-width: none;
+  }
+}
+
+.subclass {
+  width: var(--item-size);
+  min-width: var(--item-size);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--item-margin);
+}
+
+.power {
+  display: inline;
+  color: $gold;
+  flex: inherit;
+  font-size: 12px;
+  letter-spacing: normal;
+  svg {
+    margin-right: 2px;
+    font-size: 10px;
+  }
+}
+
+.subclassMods {
+  flex: 1;
+  // margin-right: calc(-1 * var(--item-margin) + #{$item-border-width});
+  display: grid;
+  grid-template-columns: repeat(var(--loadout-edit-subclass-columns, 3), var(--item-icon-size));
+  gap: var(--item-margin);
+  align-content: flex-start;
+  align-items: flex-start;
+
+  @include desktop {
+    --item-margin: 4px;
+  }
+
+  :global(.item) {
+    --item-size: var(--item-icon-size);
+  }
+  :global(.item-img) {
+    border-color: var(--theme-item-socket-border);
+  }
+}
+
+.modsPlaceholder {
+  composes: placeholder from './LoadoutItemCategorySection.m.scss';
+  width: calc(3 * var(--item-icon-size) + var(--item-margin) + #{$item-border-width}) !important;
+}
+
+.missingItem {
+  opacity: 0.3;
+}

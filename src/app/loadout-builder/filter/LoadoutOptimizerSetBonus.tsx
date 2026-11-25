@@ -1,0 +1,424 @@
+import { SetBonusCounts } from '@destinyitemmanager/dim-api-types';
+import { D2ManifestDefinitions } from 'app/destiny2/d2-definitions';
+import { languageSelector } from 'app/dim-api/selectors';
+import Sheet from 'app/dim-ui/Sheet';
+import { SheetHorizontalScrollContainer } from 'app/dim-ui/SheetHorizontalScrollContainer';
+import { TileGrid, TileGridTile } from 'app/dim-ui/TileGrid';
+import { useHotkey } from 'app/hotkeys/useHotkey';
+import { t } from 'app/i18next-t';
+import { DimItem } from 'app/inventory/item-types';
+import { allItemsSelector } from 'app/inventory/selectors';
+import { SetBonus, SetPerkIcon } from 'app/item-popup/SetBonus';
+import { setBonusModToSet } from 'app/loadout/known-values';
+import LoadoutEditSection from 'app/loadout/loadout-edit/LoadoutEditSection';
+import { isLoadoutBuilderItem } from 'app/loadout/loadout-item-utils';
+import { useD2Definitions } from 'app/manifest/selectors';
+import { SearchInput } from 'app/search/SearchInput';
+import { startWordRegexp } from 'app/search/text-utils';
+import { AppIcon, asteriskIcon } from 'app/shell/icons';
+import { useIsPhonePortrait } from 'app/shell/selectors';
+import { isiOSBrowser } from 'app/utils/browsers';
+import { filterMap, mapValues, minOf } from 'app/utils/collections';
+import { localizedSorter } from 'app/utils/intl';
+import { getActiveSetBonusHash, getSetBonusModSocket } from 'app/utils/socket-utils';
+import {
+  DestinyClass,
+  DestinyEquipableItemSetDefinition,
+  DestinyItemSetPerkDefinition,
+} from 'bungie-api-ts/destiny2';
+import clsx from 'clsx';
+import { sum } from 'es-toolkit';
+import { Dispatch, memo, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { LoadoutBuilderAction } from '../loadout-builder-reducer';
+import { ANY_SET_BONUS, getSpecificSetBonusHashes } from '../types';
+import * as styles from './LoadoutOptimizerSetBonus.m.scss';
+
+const ANY_SET_BONUS_COUNTS = [2, 4] as const;
+
+const LoadoutOptimizerSetBonus = memo(function LoadoutOptimizerSetBonus({
+  storeId,
+  setBonuses,
+  lbDispatch,
+  className,
+  classType,
+  vendorItems,
+}: {
+  storeId: string;
+  setBonuses: SetBonusCounts;
+  lbDispatch: Dispatch<LoadoutBuilderAction>;
+  className?: string;
+  classType: DestinyClass;
+  vendorItems: DimItem[];
+}) {
+  const defs = useD2Definitions()!;
+  const allItems = useSelector(allItemsSelector);
+  const [showSetBonusPicker, setShowSetBonusPicker] = useState(false);
+  const handleClear = () => {
+    lbDispatch({ type: 'removeSetBonuses' });
+  };
+  const handleUpdateSetBonuses = (setBonuses: SetBonusCounts) =>
+    lbDispatch({ type: 'setSetBonuses', setBonuses });
+
+  const showPicker = () => setShowSetBonusPicker(true);
+  const hidePicker = () => setShowSetBonusPicker(false);
+
+  const handleSyncFromEquipped = () => {
+    const equippedSetBonuses = filterMap(allItems, (i) =>
+      i.equipped && isLoadoutBuilderItem(i) && i.owner === storeId
+        ? getActiveSetBonusHash(i)
+        : undefined,
+    );
+
+    const newSetBonuses: SetBonusCounts = {};
+    for (const setHash of equippedSetBonuses) {
+      newSetBonuses[setHash] = (newSetBonuses[setHash] || 0) + 1;
+    }
+
+    for (const setHash in newSetBonuses) {
+      // Round down to the nearest perk requirement. e.g. if you have 3 pieces,
+      // round down to 2, and if you have 1 piece, remove it.
+      const setDef = defs.EquipableItemSet.get(Number(setHash));
+      // Perk requirements from high to low
+      const perkPoints = [
+        ...(setDef?.setPerks.map((p) => p.requiredSetCount) || []).sort((a, b) => b - a),
+        0,
+      ];
+      const pieceCount = newSetBonuses[setHash] ?? 0;
+      for (const perkCount of perkPoints) {
+        if (pieceCount >= perkCount) {
+          newSetBonuses[setHash] = perkCount;
+          break;
+        }
+      }
+      if (newSetBonuses[setHash] === 0) {
+        delete newSetBonuses[setHash];
+      }
+    }
+    lbDispatch({ type: 'setSetBonuses', setBonuses: newSetBonuses });
+  };
+
+  return (
+    <LoadoutEditSection
+      title={t('LoadoutBuilder.SetBonus')}
+      className={className}
+      onClear={handleClear}
+      onSyncFromEquipped={handleSyncFromEquipped}
+    >
+      <div onClick={showPicker} className={styles.setBonuses}>
+        <SetBonusDisplay setBonuses={setBonuses} />
+      </div>
+      <button type="button" className="dim-button" onClick={showPicker}>
+        {t('LB.SelectSetBonus')}
+      </button>
+      {showSetBonusPicker && (
+        <SetBonusPicker
+          initialSetBonuses={setBonuses}
+          classType={classType}
+          vendorItems={vendorItems}
+          onAccept={handleUpdateSetBonuses}
+          onClose={hidePicker}
+        />
+      )}
+    </LoadoutEditSection>
+  );
+});
+
+export default LoadoutOptimizerSetBonus;
+
+/**
+ * Returns a list of set bonuses available for the given class type, and how
+ * many pieces could be used for each.
+ */
+function findSetBonuses(
+  defs: D2ManifestDefinitions,
+  allItems: DimItem[],
+  vendorItems: DimItem[],
+  classType: DestinyClass,
+): SetBonusCounts {
+  // For each set bonus, the buckets where contributing piece exists
+  const bucketsBySet: Record<number, Set<number>> = {};
+  // Buckets where a wildcard item exists
+  const wildcardBuckets = new Set<number>();
+
+  for (const item of [...allItems, ...vendorItems]) {
+    if (item.classType !== classType || !isLoadoutBuilderItem(item)) {
+      continue;
+    }
+    if (item.setBonus) {
+      (bucketsBySet[item.setBonus.hash] ??= new Set()).add(item.bucket.hash);
+    }
+    if (getSetBonusModSocket(item)) {
+      wildcardBuckets.add(item.bucket.hash);
+    }
+  }
+
+  // Seed sets that wildcards could fill on their own (none in practice so far)
+  if (wildcardBuckets.size) {
+    for (const setHash of Object.values(setBonusModToSet)) {
+      const setDef = defs.EquipableItemSet.get(setHash);
+      if (
+        setDef &&
+        !(setHash in bucketsBySet) &&
+        wildcardBuckets.size >= minOf(setDef.setPerks, (p) => p.requiredSetCount)
+      ) {
+        bucketsBySet[setHash] = new Set();
+      }
+    }
+  }
+
+  return mapValues(
+    bucketsBySet,
+    (buckets) => buckets.size + [...wildcardBuckets].filter((b) => !buckets.has(b)).length,
+  );
+}
+
+export function SetBonusPicker({
+  initialSetBonuses,
+  classType,
+  vendorItems,
+  onAccept,
+  onClose,
+}: {
+  /** Initial Set bonus hashes mapped to desired item counts. */
+  initialSetBonuses: SetBonusCounts;
+  /** The character class we'll show set bonuses for. */
+  classType: DestinyClass;
+  /** All vendor items that could be used for set bonuses. */
+  vendorItems: DimItem[];
+  /** Called with the new SetBonusCounts when the user accepts the new selections. */
+  onAccept: (setBonuses: SetBonusCounts) => void;
+  /** Called when the user accepts the new perk selections or closes the sheet. */
+  onClose: () => void;
+}) {
+  const defs = useD2Definitions()!;
+  const isPhonePortrait = useIsPhonePortrait();
+
+  const language = useSelector(languageSelector);
+  const [query, setQuery] = useState('');
+
+  const [setBonuses, setSetBonuses] = useState(initialSetBonuses);
+
+  const allItems = useSelector(allItemsSelector);
+
+  const possibleSetBonuses = useMemo(
+    () => findSetBonuses(defs, allItems, vendorItems, classType),
+    [defs, allItems, vendorItems, classType],
+  );
+
+  const sets = useMemo(() => {
+    const allSets = Object.keys(possibleSetBonuses)
+      .map((h) => defs.EquipableItemSet.get(parseInt(h, 10)))
+      .filter((set) => !set.redacted)
+      .sort(localizedSorter(language, (set) => set.displayProperties.name));
+
+    if (!query.length) {
+      return allSets;
+    }
+
+    const regexp = startWordRegexp(query, language);
+    const searchFilter = (set: DestinyEquipableItemSetDefinition) =>
+      regexp.test(set.displayProperties.name) ||
+      regexp.test(set.displayProperties.description) ||
+      set.setPerks.some((perk) => {
+        const perkDef = defs.SandboxPerk.get(perk.sandboxPerkHash);
+        return (
+          perkDef &&
+          (regexp.test(perkDef.displayProperties.name) ||
+            regexp.test(perkDef.displayProperties.description))
+        );
+      });
+
+    return allSets.filter((set) => searchFilter(set));
+  }, [query, possibleSetBonuses, defs, language]);
+
+  const totalSelected = sum(Object.values(setBonuses));
+  const selectedAnySetBonusCount = setBonuses[ANY_SET_BONUS] ?? 0;
+
+  const anySetBonusSelected = (requiredSetCount: number) =>
+    selectedAnySetBonusCount === requiredSetCount;
+
+  const anySetBonusDisabled = (requiredSetCount: number) =>
+    // At least one available set must actually have a perk at this piece count.
+    !Object.entries(possibleSetBonuses).some(([setHash, possibleCount]) => {
+      const setDef = defs.EquipableItemSet.get(Number(setHash));
+      return (
+        (possibleCount ?? 0) >= requiredSetCount &&
+        setDef.setPerks.some((perk) => perk.requiredSetCount === requiredSetCount)
+      );
+    }) ||
+    // Selecting this option must still fit within five armor slots.
+    (!anySetBonusSelected(requiredSetCount) &&
+      totalSelected - selectedAnySetBonusCount + requiredSetCount > 5);
+
+  const selected = (perk: DestinyItemSetPerkDefinition, setHash: number) =>
+    (setBonuses[setHash] ?? 0) >= perk.requiredSetCount;
+
+  // TODO: This logic isn't quite right, since it doesn't take into account sets
+  // that we don't have a piece in every slot for. For example if you only have
+  // helmet and chest for two different sets, and you've already selected one of
+  // them, you can't select the other one.
+  const disabled = (perk: DestinyItemSetPerkDefinition, setHash: number) =>
+    // Either we don't have enough items to ever make this happen
+    (possibleSetBonuses[setHash] ?? 0) < perk.requiredSetCount ||
+    // Or the remaining unselected items would not allow us to reach the required set count
+    (!selected(perk, setHash) &&
+      totalSelected - (setBonuses[setHash] ?? 0) + perk.requiredSetCount > 5);
+
+  const footer = ({ onClose }: { onClose: () => void }) => (
+    <Footer
+      setBonuses={setBonuses}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onAccept(setBonuses);
+        onClose();
+      }}
+    />
+  );
+
+  const handlePerkClick = (setHash: number, perkRequiredCount: number) => () => {
+    setSetBonuses((setBonuses) => {
+      const newSetBonuses = { ...setBonuses };
+      if ((setBonuses[setHash] || 0) === perkRequiredCount) {
+        delete newSetBonuses[setHash];
+      } else {
+        newSetBonuses[setHash] = perkRequiredCount;
+      }
+      return newSetBonuses;
+    });
+  };
+
+  // On iOS at least, focusing the keyboard pushes the content off the screen
+  const nativeAutoFocus = !isPhonePortrait && !isiOSBrowser();
+
+  return (
+    <Sheet
+      header={
+        <div>
+          <h1>{t('LB.ChooseASetBonus')}</h1>
+          <SearchInput
+            query={query}
+            onQueryChanged={setQuery}
+            placeholder={t('LB.SearchASetBonus')}
+            autoFocus={nativeAutoFocus}
+          />
+        </div>
+      }
+      footer={footer}
+      onClose={onClose}
+      freezeInitialHeight={true}
+    >
+      <div className={styles.container}>
+        <TileGrid header={t('LoadoutBuilder.AnySetBonus')}>
+          {ANY_SET_BONUS_COUNTS.map((requiredSetCount) => (
+            <TileGridTile
+              key={requiredSetCount}
+              selected={anySetBonusSelected(requiredSetCount)}
+              disabled={anySetBonusDisabled(requiredSetCount)}
+              title={t('Item.SetBonus.NPiece', { count: requiredSetCount })}
+              icon={<AnySetBonusIcon active={anySetBonusSelected(requiredSetCount)} />}
+              onClick={handlePerkClick(ANY_SET_BONUS, requiredSetCount)}
+            >
+              {t('LoadoutBuilder.AnySetBonusDescription', {
+                pieces: requiredSetCount,
+              })}
+            </TileGridTile>
+          ))}
+        </TileGrid>
+
+        {sets.map((set) => (
+          <TileGrid key={set.hash} header={set.displayProperties.name}>
+            {set.setPerks.map((perk) => {
+              const perkDef = defs.SandboxPerk.get(perk.sandboxPerkHash);
+              return (
+                <TileGridTile
+                  key={perkDef.hash}
+                  selected={selected(perk, set.hash)}
+                  disabled={disabled(perk, set.hash)}
+                  title={
+                    <>
+                      {perkDef.displayProperties.name}
+                      <div className={styles.setCount}>
+                        {t('Item.SetBonus.NPiece', { count: perk.requiredSetCount })}
+                      </div>
+                    </>
+                  }
+                  icon={<SetPerkIcon perkDef={perkDef} active={selected(perk, set.hash)} />}
+                  onClick={handlePerkClick(set.hash, perk.requiredSetCount)}
+                >
+                  {perkDef.displayProperties.description}
+                </TileGridTile>
+              );
+            })}
+          </TileGrid>
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
+function AnySetBonusIcon({ active = false }: { active?: boolean }) {
+  return (
+    <span className={clsx(styles.anySetBonusIcon, active && styles.activeAnySetBonusIcon)}>
+      <AppIcon icon={asteriskIcon} ariaHidden />
+    </span>
+  );
+}
+
+function AnySetBonusDisplay({ setCount }: { setCount: number }) {
+  return (
+    <div className={styles.anySetBonus}>
+      <AnySetBonusIcon />
+      <span>
+        {t('LoadoutBuilder.AnySetBonusSelection', {
+          pieces: setCount,
+        })}
+      </span>
+    </div>
+  );
+}
+
+function Footer({
+  setBonuses,
+  onSubmit,
+}: {
+  setBonuses: SetBonusCounts;
+  onSubmit: (event: React.FormEvent | KeyboardEvent) => void;
+}) {
+  const acceptButtonText = t('LB.SelectSetBonus');
+  useHotkey('enter', acceptButtonText, onSubmit);
+  const isPhonePortrait = useIsPhonePortrait();
+
+  return (
+    <div className={styles.footer}>
+      <button type="button" className={styles.submitButton} onClick={onSubmit}>
+        {!isPhonePortrait && '⏎ '}
+        {acceptButtonText}
+      </button>
+      <SheetHorizontalScrollContainer className={styles.selectedBonuses}>
+        <SetBonusDisplay setBonuses={setBonuses} />
+      </SheetHorizontalScrollContainer>
+    </div>
+  );
+}
+
+function SetBonusDisplay({ setBonuses }: { setBonuses: SetBonusCounts }) {
+  const defs = useD2Definitions()!;
+  const anySetBonusCount = setBonuses[ANY_SET_BONUS];
+
+  return (
+    <>
+      {anySetBonusCount !== undefined && <AnySetBonusDisplay setCount={anySetBonusCount} />}
+
+      {getSpecificSetBonusHashes(setBonuses).map((setHash) => {
+        const setDef = defs.EquipableItemSet.get(setHash);
+        return (
+          setDef &&
+          !setDef.redacted && (
+            <SetBonus key={setDef.hash} setBonus={setDef} setCount={setBonuses[setHash]} />
+          )
+        );
+      })}
+    </>
+  );
+}

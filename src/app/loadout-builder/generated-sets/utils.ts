@@ -1,0 +1,42 @@
+import { sumBy } from 'app/utils/collections';
+import { chainComparator, Comparator, compareBy } from 'app/utils/comparators';
+import { clamp, sum } from 'es-toolkit';
+import { ArmorSet, ArmorStatHashes, ArmorStats, DesiredStatRange } from '../types';
+import { getPower } from '../utils';
+
+function getComparatorsForMatchedSetSorting(desiredStatRanges: DesiredStatRange[]) {
+  const comparators: Comparator<ArmorSet>[] = [
+    compareBy((s) => -sumEnabledStats(s.stats, desiredStatRanges)),
+  ];
+
+  for (const constraint of desiredStatRanges) {
+    const statHash: ArmorStatHashes = constraint.statHash;
+    comparators.push(compareBy((s) => -Math.min(s.stats[statHash], constraint.maxStat)));
+  }
+
+  comparators.push(
+    // Finally sort by total stats, then by power
+    compareBy((s) => -sum(Object.values(s.stats))),
+    compareBy((s) => -getPower(s.armor)),
+  );
+  return comparators;
+}
+
+/**
+ * A final sorting pass over all sets. This should mostly agree with the sorting in the worker,
+ * but it may do a final pass over the returned sets to add more stat mods and that requires us
+ * to sort again. So just do that here.
+ */
+export function sortGeneratedSets(
+  sets: ArmorSet[],
+  desiredStatRanges: DesiredStatRange[],
+): ArmorSet[] {
+  return sets.sort(chainComparator(...getComparatorsForMatchedSetSorting(desiredStatRanges)));
+}
+
+export function sumEnabledStats(stats: ArmorStats, desiredStatRanges: DesiredStatRange[]) {
+  return sumBy(desiredStatRanges, (constraint) => {
+    const statHash: ArmorStatHashes = constraint.statHash;
+    return clamp(stats[statHash], 0, constraint.maxStat);
+  });
+}

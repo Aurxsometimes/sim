@@ -1,0 +1,34 @@
+// True black (OLED) theme. Inherits everything from DIM Dark Mode (see
+// _theme-dimdark.scss) and only overrides the background colors.
+.theme-black {
+  // Generic fills for modal backgrounds
+  --theme-fill-modal: #000;
+  --theme-fill-modal-actions: #111;
+
+  // App background: solid black instead of the dark grey-blue gradient
+  --theme-app-bg-gradient-start: #000;
+  --theme-app-bg-gradient-end: #000;
+  --theme-app-bg: #000;
+  --theme-pwa-background: #000;
+
+  // Header
+  --theme-header-nav-bg: #000;
+  --theme-header-characters-bg: #000;
+
+  // Search: slightly lighter than the black header so the bar stays visible
+  --theme-search-bg: #141414;
+
+  // Inputs and panels
+  --theme-input-bg: #1a1a1a;
+  --theme-item-popup-border: #1a1a1a;
+  --theme-item-popup-panel-bg: #1a1a1a;
+  --theme-item-popup-progress-bar-bg: #111;
+
+  // Tooltips
+  --theme-tooltip-header-bg: #000;
+  --theme-tooltip-body-bg: #0d0d0d;
+
+  // Organizer table rows
+  --theme-organizer-row-odd-bg: #000;
+  --theme-organizer-row-even-bg: #0d0d0d;
+}
