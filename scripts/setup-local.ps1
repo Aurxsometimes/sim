@@ -79,14 +79,7 @@ Write-Host '=== Step 3: Shortcuts ===' -ForegroundColor Cyan
 Copy-Item "$PSScriptRoot\local\server.mjs", "$PSScriptRoot\local\launch.ps1", "$PSScriptRoot\local\stop.ps1" $simHome -Force
 Copy-Item "$repo\icons\release\favicon.ico" "$simHome\sim.ico" -Force
 
-# Open in the default browser's app mode (it has the keys saved for localhost:8080)
-$progId = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction SilentlyContinue).ProgId
-$browser = $null
-try {
-  $command = (Get-ItemProperty "Registry::HKEY_CLASSES_ROOT\$progId\shell\open\command").'(default)'
-  if ($command -match '^"([^"]+\.exe)"') { $browser = $Matches[1] }
-} catch {}
-if ($browser) { Set-Content "$simHome\browser.txt" $browser } else { Remove-Item "$simHome\browser.txt" -ErrorAction SilentlyContinue }
+Remove-Item "$simHome\browser.txt" -ErrorAction SilentlyContinue # used by older versions
 
 # .vbs wrappers run the PowerShell scripts without flashing a console window
 foreach ($name in 'launch', 'stop') {
@@ -115,5 +108,7 @@ $s.Save()
 
 Write-Host ''
 Write-Host 'Done! Open "SIM (local)" from the Start menu or desktop.' -ForegroundColor Green
+Write-Host 'First time: in SIM, open the menu (top left) -> "Install as an App".'
+Write-Host 'After that, "SIM (local)" starts the server and opens the installed app.'
 Write-Host 'To pin it: right-click "SIM (local)" in the Start menu -> Pin to taskbar.'
 Write-Host 'Note: the SIM dev server also uses port 8080, so only one of them can run at a time.'
