@@ -1,4 +1,4 @@
-name: Deploy SIM to GitHub Pages
+name: Deploy SIM to Cloudflare Pages
 
 on:
   push:
@@ -7,16 +7,14 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # Only one deploy at a time; a newer push cancels an older in-progress one
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,45 +29,45 @@ jobs:
           WEB_OAUTH_CLIENT_ID: ${{ secrets.WEB_OAUTH_CLIENT_ID }}
           WEB_OAUTH_CLIENT_SECRET: ${{ secrets.WEB_OAUTH_CLIENT_SECRET }}
           DIM_API_KEY: ${{ secrets.DIM_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PROJECT: ${{ vars.CLOUDFLARE_PROJECT }}
         run: |
           missing=0
-          for name in WEB_API_KEY WEB_OAUTH_CLIENT_ID WEB_OAUTH_CLIENT_SECRET DIM_API_KEY; do
-            if [ -z "${!name}" ]; then echo "::error::Repository secret $name is not set"; missing=1; fi
+          for name in WEB_API_KEY WEB_OAUTH_CLIENT_ID WEB_OAUTH_CLIENT_SECRET DIM_API_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_PROJECT; do
+            if [ -z "${!name}" ]; then echo "::error::$name is not set - run scripts/setup-secrets.ps1"; missing=1; fi
           done
           exit $missing
 
       - name: Build
         env:
-          # The site lives at https://<user>.github.io/<repo>/
-          PUBLIC_PATH: /${{ github.event.repository.name }}/
           WEB_API_KEY: ${{ secrets.WEB_API_KEY }}
           WEB_OAUTH_CLIENT_ID: ${{ secrets.WEB_OAUTH_CLIENT_ID }}
           WEB_OAUTH_CLIENT_SECRET: ${{ secrets.WEB_OAUTH_CLIENT_SECRET }}
           DIM_API_KEY: ${{ secrets.DIM_API_KEY }}
-          # GitHub Pages doesn't serve pre-compressed .br files, so skip making them
+          # Cloudflare compresses files itself, so skip making .br copies
           PR_BUILD: '1'
           CI: 'true'
         run: |
           export VERSION="$(node -p "require('./package.json').version").${GITHUB_RUN_NUMBER}"
           pnpm build:release
 
-      - name: Prepare for GitHub Pages
+      - name: Prepare for Cloudflare Pages
         run: |
-          # Single-page app: unknown paths (deep links) load the app, which then routes itself
-          cp dist/index.html dist/404.html
-          # Don't let Jekyll mangle files that start with an underscore
-          touch dist/.nojekyll
+          # With no 404.html, Cloudflare Pages treats the site as a single-page app and
+          # serves index.html for deep links (e.g. /1234/d2/inventory).
+          rm -f dist/404.html
+          # Source maps are large and only useful for debugging; Cloudflare caps file counts/sizes
+          find dist -name '*.map' -delete
+          # Destiny 1 data (one file is 44 MB, over Cloudflare's 25 MB limit). SIM is Destiny 2 only.
+          rm -rf dist/data/d1
+          # Fail early with a clear message if anything else is too big for Cloudflare
+          big="$(find dist -type f -size +25M)"
+          if [ -n "$big" ]; then echo "::error::Files over Cloudflare's 25 MB limit: $big"; exit 1; fi
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
         with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ vars.CLOUDFLARE_PROJECT }} --branch=main --commit-dirty=true

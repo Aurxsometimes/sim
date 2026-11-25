@@ -1,6 +1,8 @@
 # SIM — Seeyuna's Item Manager
 
-**[Open SIM](https://aurxsometimes.github.io/sim/)**
+**Open SIM:** use the website link at the top right of the [GitHub repo](https://github.com/Aurxsometimes/sim).
+
+SIM is for Destiny 2 only.
 
 SIM is a personal fork of [Destiny Item Manager (DIM)](https://github.com/DestinyItemManager/DIM) for Destiny 2, with a few extras:
 
@@ -20,4 +22,6 @@ Your tags, loadouts and loadout groups are saved with DIM Sync under your own Bu
 
 See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for running it locally (`pnpm install`, `pnpm start`, then https://localhost:8080).
 
-Every push to `main` builds and deploys the site to GitHub Pages via [.github/workflows/deploy.yml](.github/workflows/deploy.yml). The build needs these repository secrets: `WEB_API_KEY`, `WEB_OAUTH_CLIENT_ID`, `WEB_OAUTH_CLIENT_SECRET`, `DIM_API_KEY`.
+Every push to `main` builds the site and deploys it to Cloudflare Pages via [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+
+One-time setup: run `powershell -ExecutionPolicy Bypass -File scripts\setup-secrets.ps1`. It creates the Cloudflare Pages project, walks you through the Bungie app, registers a DIM Sync key, and stores everything as GitHub secrets (`WEB_API_KEY`, `WEB_OAUTH_CLIENT_ID`, `WEB_OAUTH_CLIENT_SECRET`, `DIM_API_KEY`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) plus the `CLOUDFLARE_PROJECT` variable.

@@ -1,46 +1,115 @@
-# Sets up the keys SIM's GitHub Pages build needs, then starts a deploy.
+# One-time setup for SIM's website on Cloudflare Pages.
 #
 # Run from the repo folder:   powershell -ExecutionPolicy Bypass -File scripts\setup-secrets.ps1
 #
-# You'll be asked for the three values from your Bungie app page
-# (https://www.bungie.net/en/Application). The script then:
-#   1. registers a DIM Sync key for the website's address, and
-#   2. saves all four keys as encrypted GitHub repository secrets.
-# Nothing is written to disk.
+# It will:
+#   1. use your Cloudflare API token to create (or find) the Cloudflare Pages project,
+#      and tell you the site's address,
+#   2. wait while you create the Bungie app for that address,
+#   3. register a DIM Sync key for that address,
+#   4. save everything as encrypted GitHub secrets and start a deploy.
+# Nothing is written to disk. Safe to run again.
 
 $ErrorActionPreference = 'Stop'
-
 $Repo = 'Aurxsometimes/sim'
-$SiteOrigin = 'https://aurxsometimes.github.io'
 
-Write-Host ''
-Write-Host 'SIM key setup' -ForegroundColor Cyan
-Write-Host 'Copy these from your Bungie app page (https://www.bungie.net/en/Application).'
-Write-Host ''
-
-$apiKey = (Read-Host 'Bungie "API Key"').Trim()
-$clientId = (Read-Host 'Bungie "OAuth client_id"').Trim()
-$clientSecret = (Read-Host 'Bungie "OAuth client_secret"').Trim()
-
-if (-not $apiKey -or -not $clientId -or -not $clientSecret) {
-  throw 'All three values are required.'
+function Read-Secret([string]$prompt) {
+  $secure = Read-Host $prompt -AsSecureString
+  $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+  try { return ([Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)).Trim() }
+  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
 }
 
-# Register a DIM Sync (DIM API) key for the website's origin
+function Invoke-Cloudflare([string]$method, [string]$path, $body = $null) {
+  $params = @{
+    Method  = $method
+    Uri     = "https://api.cloudflare.com/client/v4$path"
+    Headers = @{ Authorization = "Bearer $script:cfToken" }
+  }
+  if ($body) { $params.ContentType = 'application/json'; $params.Body = ($body | ConvertTo-Json) }
+  return Invoke-RestMethod @params
+}
+
+Write-Host ''
+Write-Host '=== Step 1: Cloudflare ===' -ForegroundColor Cyan
+Write-Host 'Make an API token at https://dash.cloudflare.com/profile/api-tokens'
+Write-Host '  Create Token -> Create Custom Token'
+Write-Host '  Permissions: Account | Cloudflare Pages | Edit'
+Write-Host '  Account Resources: Include | (your account)'
+Write-Host ''
+$script:cfToken = Read-Secret 'Cloudflare API token (input hidden)'
+
+$accounts = @((Invoke-Cloudflare GET '/accounts').result)
+if ($accounts.Count -eq 0) { throw 'That token cannot see any Cloudflare account. Check its Account Resources.' }
+$account = $accounts[0]
+if ($accounts.Count -gt 1) {
+  for ($i = 0; $i -lt $accounts.Count; $i++) { Write-Host "  [$i] $($accounts[$i].name)" }
+  $account = $accounts[[int](Read-Host 'Which account')]
+}
+Write-Host "Using Cloudflare account: $($account.name)" -ForegroundColor Green
+
+$project = $null
+while (-not $project) {
+  $projectName = Read-Host 'Cloudflare project name (lowercase, e.g. sim) [sim]'
+  if (-not $projectName) { $projectName = 'sim' }
+  $projectName = $projectName.Trim().ToLower()
+  try {
+    $project = (Invoke-Cloudflare GET "/accounts/$($account.id)/pages/projects/$projectName").result
+    Write-Host "Found existing project '$projectName'." -ForegroundColor Green
+  } catch {
+    try {
+      $project = (Invoke-Cloudflare POST "/accounts/$($account.id)/pages/projects" @{
+          name = $projectName; production_branch = 'main'
+        }).result
+      Write-Host "Created project '$projectName'." -ForegroundColor Green
+    } catch {
+      Write-Host "Couldn't create '$projectName': $($_.ErrorDetails.Message)" -ForegroundColor Yellow
+    }
+  }
+}
+
+$siteOrigin = "https://$($project.subdomain)"
+Write-Host ''
+Write-Host "Your site will be:  $siteOrigin" -ForegroundColor Green
+
+gh secret set CLOUDFLARE_API_TOKEN -R $Repo --body $script:cfToken
+gh secret set CLOUDFLARE_ACCOUNT_ID -R $Repo --body $account.id
+gh variable set CLOUDFLARE_PROJECT -R $Repo --body $projectName
+gh repo edit $Repo --homepage $siteOrigin | Out-Null
+
+Write-Host ''
+Write-Host '=== Step 2: Bungie app ===' -ForegroundColor Cyan
+Write-Host 'Go to https://www.bungie.net/en/Application -> Create New App, and enter:'
+Write-Host '  Application Name:  SIM'
+Write-Host "  Website:           https://github.com/$Repo"
+Write-Host '  OAuth Client Type: Confidential'
+Write-Host "  Redirect URL:      $siteOrigin/return.html"
+Write-Host '  Scope:             everything EXCEPT "Administrate Groups/Clans"'
+Write-Host "  Origin Header:     $siteOrigin"
+Write-Host ''
+Read-Host 'Press Enter once the Bungie app is created'
+
+$apiKey = Read-Secret 'Bungie "API Key" (input hidden)'
+$clientId = (Read-Host 'Bungie "OAuth client_id"').Trim()
+$clientSecret = Read-Secret 'Bungie "OAuth client_secret" (input hidden)'
+if (-not $apiKey -or -not $clientId -or -not $clientSecret) { throw 'All three Bungie values are required.' }
+
+Write-Host ''
+Write-Host '=== Step 3: DIM Sync ===' -ForegroundColor Cyan
 $dimApiKey = $null
 while (-not $dimApiKey) {
-  $appName = (Read-Host 'Name for your DIM Sync app (lowercase letters, numbers, dashes; e.g. seeyuna-sim)').Trim()
+  $appName = (Read-Host 'Name for your DIM Sync app (a-z, 0-9, dashes; e.g. seeyuna-sim)').Trim()
   if ($appName -notmatch '^[a-z0-9-]{3,}$') {
     Write-Host 'Use at least 3 characters: a-z, 0-9 and - only.' -ForegroundColor Yellow
     continue
   }
-  $body = @{ id = $appName; bungieApiKey = $apiKey; origin = $SiteOrigin } | ConvertTo-Json
+  $body = @{ id = $appName; bungieApiKey = $apiKey; origin = $siteOrigin } | ConvertTo-Json
   try {
     $response = Invoke-RestMethod -Method Post -Uri 'https://api.destinyitemmanager.com/new_app' `
       -ContentType 'application/json' -Body $body
     $dimApiKey = $response.app.dimApiKey
     if (-not $dimApiKey) { throw 'The DIM API did not return a key.' }
-    Write-Host "DIM Sync key registered for $SiteOrigin." -ForegroundColor Green
+    Write-Host "DIM Sync key registered for $siteOrigin." -ForegroundColor Green
   } catch {
     Write-Host "Couldn't register '$appName': $($_.Exception.Message)" -ForegroundColor Yellow
     if ($_.ErrorDetails.Message) { Write-Host $_.ErrorDetails.Message -ForegroundColor Yellow }
@@ -49,16 +118,13 @@ while (-not $dimApiKey) {
 }
 
 Write-Host ''
-Write-Host "Saving secrets to github.com/$Repo ..." -ForegroundColor Cyan
+Write-Host '=== Step 4: Save to GitHub and deploy ===' -ForegroundColor Cyan
 gh secret set WEB_API_KEY -R $Repo --body $apiKey
 gh secret set WEB_OAUTH_CLIENT_ID -R $Repo --body $clientId
 gh secret set WEB_OAUTH_CLIENT_SECRET -R $Repo --body $clientSecret
 gh secret set DIM_API_KEY -R $Repo --body $dimApiKey
-
-Write-Host ''
-Write-Host 'Starting a deploy...' -ForegroundColor Cyan
 gh workflow run deploy.yml -R $Repo
 
 Write-Host ''
-Write-Host "Done. The site will be live in a few minutes at $SiteOrigin/sim/" -ForegroundColor Green
+Write-Host "Done! In about 5 minutes SIM will be live at $siteOrigin" -ForegroundColor Green
 Write-Host "Watch progress at https://github.com/$Repo/actions"
