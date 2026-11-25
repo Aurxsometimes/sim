@@ -2,11 +2,12 @@ import {
   FatalTokenError,
   getActiveToken as getBungieToken,
 } from 'app/bungie-api/authenticated-fetch';
+import { usesStoredKeys } from 'app/bungie-api/bungie-api-utils';
 import { dedupePromise } from 'app/utils/promises';
 import { HttpClientConfig } from 'bungie-api-ts/http';
 
 const DIM_API_HOST = 'https://api.destinyitemmanager.com';
-export const API_KEY = $DIM_FLAVOR !== 'dev' ? $DIM_API_KEY : localStorage.getItem('dimApiKey')!;
+export const API_KEY = usesStoredKeys ? localStorage.getItem('dimApiKey')! : $DIM_API_KEY;
 
 /**
  * Whether this build can use DIM Sync at all. SIM's public website has no DIM Sync key (DIM only

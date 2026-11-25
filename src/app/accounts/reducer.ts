@@ -1,5 +1,5 @@
 import { DestinyVersion } from '@destinyitemmanager/dim-api-types';
-import { API_KEY as BUNGIE_API_KEY } from 'app/bungie-api/bungie-api-utils';
+import { API_KEY as BUNGIE_API_KEY, usesStoredKeys } from 'app/bungie-api/bungie-api-utils';
 import { hasValidAuthTokens } from 'app/bungie-api/oauth-tokens';
 import { API_KEY as DIM_API_KEY } from 'app/dim-api/dim-api-helper';
 import { deepEqual } from 'fast-equals';
@@ -54,11 +54,13 @@ const initialState: AccountsState = {
   loadedFromIDB: false,
   needsLogin: !hasValidAuthTokens(),
   needsDeveloper:
-    // The public SIM site runs without a DIM Sync key (local-only); only dev builds require one
-    ($DIM_FLAVOR === 'dev' && !DIM_API_KEY) ||
+    // The public SIM site runs without a DIM Sync key (local-only); builds that use keys
+    // saved in the browser (dev, and SIM's local install) require a full set
     !BUNGIE_API_KEY ||
-    ($DIM_FLAVOR === 'dev' &&
-      (!localStorage.getItem('oauthClientId') || !localStorage.getItem('oauthClientSecret'))),
+    (usesStoredKeys &&
+      (!DIM_API_KEY ||
+        !localStorage.getItem('oauthClientId') ||
+        !localStorage.getItem('oauthClientSecret'))),
 };
 
 export const accounts: Reducer<AccountsState, AccountsAction> = (

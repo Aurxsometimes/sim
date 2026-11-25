@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { useSelector } from 'react-redux';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import * as styles from './App.m.scss';
+import { usesStoredKeys } from './bungie-api/bungie-api-utils';
 import Developer from './developer/Developer';
 import AutoRefresh from './dim-ui/AutoRefresh';
 import ClickOutsideRoot from './dim-ui/ClickOutsideRoot';
@@ -111,7 +112,7 @@ export default function App() {
                   </ErrorBoundary>
                 }
               />
-              {$DIM_FLAVOR === 'dev' && (
+              {usesStoredKeys && (
                 <Route
                   path="developer"
                   element={
@@ -125,7 +126,7 @@ export default function App() {
                 <Route
                   path="*"
                   element={
-                    $DIM_FLAVOR === 'dev' && needsDeveloper ? (
+                    usesStoredKeys && needsDeveloper ? (
                       <Navigate to="/developer" />
                     ) : (
                       <Navigate to="/login" state={{ path: `${pathname}${search}` }} />
