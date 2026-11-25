@@ -36,8 +36,9 @@ const navigationRoute = new NavigationRoute(handler, {
   // These have their own pages (return.html)
   // This regex matches on query string too, so no anchors!
   denylist: [
-    /return\.html/,
-    /backup\.html/,
+    // Cloudflare Pages serves these without ".html" (it redirects return.html -> /return)
+    /\/return(\.html)?(\?|$)/,
+    /\/backup(\.html)?(\?|$)/,
     /\.well-known/,
     /\.(php|json|wasm|js|css|png|jpg|map)(\.(gz|br))?$/,
     /\/data\/d1\/manifests\//,

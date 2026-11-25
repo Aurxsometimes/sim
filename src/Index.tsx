@@ -28,11 +28,20 @@ import { safariTouchFix } from './app/safari-touch-fix';
 import { createWishlistObserver } from './app/wishlists/observers';
 import { observe } from 'app/store/observerMiddleware';
 
-// If the Bungie app's Redirect URL points at the site root instead of return.html, Bungie
-// sends the login code here. Hand it to return.html, which checks the state and finishes login.
+// Bungie's login code should be handled by return.html, never by the app itself.
 const authParams = new URLSearchParams(window.location.search);
 if (authParams.get('code') && authParams.get('state')) {
-  window.location.replace(`${$PUBLIC_PATH}return.html${window.location.search}`);
+  if (window.location.pathname.startsWith(`${$PUBLIC_PATH}return`)) {
+    // An old service worker served the app in place of /return (Cloudflare drops ".html").
+    // Remove it and reload so the real return page loads and finishes the login.
+    void navigator.serviceWorker
+      ?.getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((r) => r.unregister())))
+      .finally(() => window.location.reload());
+  } else {
+    // The Bungie app's Redirect URL points at the site root instead of return.html
+    window.location.replace(`${$PUBLIC_PATH}return.html${window.location.search}`);
+  }
 }
 
 infoLog(
