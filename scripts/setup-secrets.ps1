@@ -125,10 +125,19 @@ Write-Host 'All three values below must come from this SAME app (not your localh
 Write-Host 'or logging in will just loop back to the login page.' -ForegroundColor Yellow
 Read-Host 'Press Enter once the Bungie app is created'
 
-$apiKey = Read-Secret 'Bungie "API Key" (input hidden)'
-$clientId = (Read-Host 'Bungie "OAuth client_id"').Trim()
-$clientSecret = Read-Secret 'Bungie "OAuth client_secret" (input hidden)'
-if (-not $apiKey -or -not $clientId -or -not $clientSecret) { throw 'All three Bungie values are required.' }
+# Each question repeats until it gets a sensible value, so a stray Enter (copied text often
+# ends with a line break) can't skip ahead to the next question.
+function Read-Until([string]$prompt, [string]$pattern, [string]$hint, [switch]$Hidden) {
+  while ($true) {
+    $value = if ($Hidden) { Read-Secret $prompt } else { (Read-Host $prompt).Trim() }
+    if ($value -match $pattern) { return $value }
+    if ($value) { Write-Host "That doesn't look right: $hint" -ForegroundColor Yellow }
+  }
+}
+Write-Host 'Paste each value, then press Enter. (If a question repeats, just paste it again.)'
+$apiKey = Read-Until 'Bungie "API Key" (input hidden)' '^[0-9a-fA-F]{32}$' 'the API Key is 32 letters/numbers.' -Hidden
+$clientId = Read-Until 'Bungie "OAuth client_id"' '^\d+$' 'the client_id is only digits, e.g. 57092.'
+$clientSecret = Read-Until 'Bungie "OAuth client_secret" (input hidden)' '^\S{20,}$' 'the client_secret is a long code with no spaces.' -Hidden
 
 Write-Host ''
 Write-Host '=== Step 3: DIM Sync (optional) ===' -ForegroundColor Cyan
