@@ -223,3 +223,37 @@ export async function decodeCompactLoadout(data: string): Promise<DimApiLoadout>
 export async function compactLoadoutShareUrl(loadout: DimApiLoadout): Promise<string> {
   return `${window.location.origin}${$PUBLIC_PATH}loadouts?${COMPACT_LOADOUT_PARAM}=${await encodeCompactLoadout(loadout)}`;
 }
+
+/** Short link IDs made by SIM's website (see functions/api/share). */
+export const SHORT_LINK_PATTERN = /\/s\/([\w-]{8,12})\/?$/;
+
+/**
+ * A short link like https://sim-3sj.pages.dev/s/aB3dE9xQ, stored by the website's share
+ * function. Falls back to the longer self-contained link if that isn't available (e.g. the
+ * local install, or the site's storage isn't set up).
+ */
+export async function shortLoadoutShareUrl(loadout: DimApiLoadout): Promise<string> {
+  const data = await encodeCompactLoadout(loadout);
+  try {
+    const response = await fetch(`${$PUBLIC_PATH}api/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data }),
+    });
+    const { id } = (await response.json()) as { id?: string };
+    if (response.ok && id) {
+      return `${window.location.origin}${$PUBLIC_PATH}s/${id}`;
+    }
+  } catch {}
+  return `${window.location.origin}${$PUBLIC_PATH}loadouts?${COMPACT_LOADOUT_PARAM}=${data}`;
+}
+
+/** Look up a short link's loadout data on this site. */
+export async function fetchShortLinkData(id: string): Promise<string> {
+  const response = await fetch(`${$PUBLIC_PATH}api/share/${id}`);
+  const body = (await response.json().catch(() => ({}))) as { data?: string; error?: string };
+  if (!response.ok || !body.data) {
+    throw new Error(body.error ?? `Couldn't find that loadout link (${response.status})`);
+  }
+  return body.data;
+}

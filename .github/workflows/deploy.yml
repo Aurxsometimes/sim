@@ -65,6 +65,36 @@ jobs:
           big="$(find dist -type f -size +25M)"
           if [ -n "$big" ]; then echo "::error::Files over Cloudflare's 25 MB limit: $big"; exit 1; fi
 
+      - name: Set up storage for short loadout links
+        # Finds or creates the "sim-shares" KV namespace and connects it to the site's functions
+        # (functions/). If the token can't use KV, the site still deploys; sharing then falls
+        # back to longer self-contained links.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PROJECT: ${{ vars.CLOUDFLARE_PROJECT }}
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces"
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          id="$(curl -sS -H "$auth" "$api?per_page=100" | jq -r '.result // [] | .[] | select(.title=="sim-shares") | .id' | head -n1)"
+          if [ -z "$id" ]; then
+            id="$(curl -sS -X POST -H "$auth" -H 'Content-Type: application/json' -d '{"title":"sim-shares"}' "$api" | jq -r '.result.id // empty')"
+          fi
+          if [ -z "$id" ]; then
+            echo "::warning::Short loadout links are off: the Cloudflare token needs 'Workers KV Storage: Edit'. Sharing uses longer links until then."
+            exit 0
+          fi
+          cat > wrangler.toml <<EOF
+          name = "$CLOUDFLARE_PROJECT"
+          pages_build_output_dir = "dist"
+          compatibility_date = "2025-01-01"
+
+          [[kv_namespaces]]
+          binding = "SHARES"
+          id = "$id"
+          EOF
+          echo "Short loadout links use KV namespace $id"
+
       - name: Upload to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:

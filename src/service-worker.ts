@@ -40,6 +40,9 @@ const navigationRoute = new NavigationRoute(handler, {
     /\/return(\.html)?(\?|$)/,
     /\/backup(\.html)?(\?|$)/,
     /\.well-known/,
+    // SIM's short loadout links and their API are handled by Cloudflare functions
+    /\/s\/[\w-]+\/?(\?|$)/,
+    /\/api\//,
     /\.(php|json|wasm|js|css|png|jpg|map)(\.(gz|br))?$/,
     /\/data\/d1\/manifests\//,
   ],

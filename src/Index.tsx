@@ -44,6 +44,18 @@ if (authParams.get('code') && authParams.get('state')) {
   }
 }
 
+// A short loadout link (/s/<id>) that an older cached copy of SIM served as the app:
+// look the loadout up and open it the way the link would have.
+const shortLink = window.location.pathname.match(/^\/s\/([\w-]{8,12})\/?$/);
+if (shortLink) {
+  void fetch(`${$PUBLIC_PATH}api/share/${shortLink[1]}`)
+    .then((r) => r.json() as Promise<{ data?: string }>)
+    .catch(() => ({ data: undefined }))
+    .then(({ data }) =>
+      window.location.replace(`${$PUBLIC_PATH}loadouts${data ? `?s=${data}` : ''}`),
+    );
+}
+
 infoLog(
   'app',
   `DIM v${$DIM_VERSION} (${$DIM_FLAVOR}) - Please report any errors to https://www.github.com/DestinyItemManager/DIM/issues`,

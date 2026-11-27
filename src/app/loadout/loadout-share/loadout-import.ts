@@ -7,7 +7,12 @@ import { Loadout } from 'app/loadout/loadout-types';
 import { DestinyClass } from 'bungie-api-ts/destiny2';
 import { clamp } from 'es-toolkit';
 import { MAX_STAT, MAX_TIER } from '../known-values';
-import { COMPACT_LOADOUT_PARAM, decodeCompactLoadout } from './compact-share';
+import {
+  COMPACT_LOADOUT_PARAM,
+  SHORT_LINK_PATTERN,
+  decodeCompactLoadout,
+  fetchShortLinkData,
+} from './compact-share';
 // A very permissive regex that allows directly pasted URLs, but also various ways in which
 // people might type it manually (such as a URL-like string with a missing protocol or just the share ID)
 // Hardcoding the lower limit of 7 characters so that a user typing the characters manually doesn't call
@@ -36,6 +41,11 @@ export type DecodedShareLink =
       data: string;
     }
   | {
+      /** SIM's short link (/s/<id>), looked up on this site */
+      tag: 'simShortLink';
+      id: string;
+    }
+  | {
       tag: 'urlParameters';
       urlParameters: UrlLoadoutParameters;
     };
@@ -50,6 +60,8 @@ export async function getDecodedLoadout(decodedUrl: DecodedShareLink): Promise<L
       return decodedUrl.loadout;
     case 'compactLoadout':
       return decodeUrlCompactLoadout(decodedUrl.data);
+    case 'simShortLink':
+      return decodeUrlCompactLoadout(await fetchShortLinkData(decodedUrl.id));
     case 'urlParameters': {
       const { classType, notes, parameters } = decodedUrl.urlParameters;
       const loadout = newLoadout('', [], classType);
@@ -70,6 +82,10 @@ export function decodeShareUrl(shareUrl: string): DecodedShareLink | undefined {
   }
   try {
     const { pathname, search } = new URL(shareUrl);
+    const shortLink = pathname.match(SHORT_LINK_PATTERN);
+    if (shortLink) {
+      return { tag: 'simShortLink', id: shortLink[1] };
+    }
     if (pathname.endsWith('/loadouts')) {
       const data = new URLSearchParams(search).get(COMPACT_LOADOUT_PARAM);
       if (data) {

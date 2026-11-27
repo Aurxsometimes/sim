@@ -110,6 +110,7 @@ export default tseslint.config(
       'src/testing/jest-setup.cjs',
       'src/fa-subset.js',
       'scripts/local/**', // SIM's local server: plain Node, not part of the app's TypeScript project
+      'functions/**', // Cloudflare Pages Functions (short loadout links), not part of the app
       'src/data/font/symbol-name-sources.ts', // TODO: fix the source!
     ],
   },
