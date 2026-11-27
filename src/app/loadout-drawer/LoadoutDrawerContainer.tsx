@@ -4,7 +4,11 @@ import { DimItem } from 'app/inventory/item-types';
 import { storesSelector } from 'app/inventory/selectors';
 import { getCurrentStore } from 'app/inventory/stores-helpers';
 import { warnMissingClass } from 'app/loadout-builder/loadout-builder-reducer';
-import { decodeUrlLoadout } from 'app/loadout/loadout-share/loadout-import';
+import { COMPACT_LOADOUT_PARAM } from 'app/loadout/loadout-share/compact-share';
+import {
+  decodeUrlCompactLoadout,
+  decodeUrlLoadout,
+} from 'app/loadout/loadout-share/loadout-import';
 import { useD2Definitions } from 'app/manifest/selectors';
 import { showNotification } from 'app/notifications/notifications';
 import { lazyWithRetry as lazy } from 'app/utils/chunk-load';
@@ -111,14 +115,21 @@ export default function LoadoutDrawerContainer({ account }: { account: DestinyAc
     ),
   );
 
-  // Load in a full loadout specified in the URL
+  // Load in a full loadout specified in the URL (?loadout=... or SIM's compressed ?s=...)
   useEffect(() => {
     if (!stores.length || !defs?.isDestiny2) {
       return;
     }
-    try {
-      const parsedLoadout = decodeUrlLoadout(queryString);
-      if (parsedLoadout) {
+    const compact = new URLSearchParams(queryString).get(COMPACT_LOADOUT_PARAM);
+    let canceled = false;
+    (async () => {
+      try {
+        const parsedLoadout = compact
+          ? await decodeUrlCompactLoadout(compact)
+          : decodeUrlLoadout(queryString);
+        if (canceled || !parsedLoadout) {
+          return;
+        }
         const storeId = pickBackingStore(stores, undefined, parsedLoadout.classType)?.id;
 
         if (!storeId) {
@@ -134,16 +145,22 @@ export default function LoadoutDrawerContainer({ account }: { account: DestinyAc
         });
         // Clear the loadout from params if the URL contained one...
         navigate(pathname, { replace: true });
+      } catch (e) {
+        if (canceled) {
+          return;
+        }
+        showNotification({
+          type: 'error',
+          title: t('Loadouts.BadLoadoutShare'),
+          body: t('Loadouts.BadLoadoutShareBody', { error: errorMessage(e) }),
+        });
+        // ... or if it contained errors
+        navigate(pathname, { replace: true });
       }
-    } catch (e) {
-      showNotification({
-        type: 'error',
-        title: t('Loadouts.BadLoadoutShare'),
-        body: t('Loadouts.BadLoadoutShareBody', { error: errorMessage(e) }),
-      });
-      // ... or if it contained errors
-      navigate(pathname, { replace: true });
-    }
+    })();
+    return () => {
+      canceled = true;
+    };
   }, [defs, queryString, navigate, pathname, stores]);
 
   // Close the loadout on navigation

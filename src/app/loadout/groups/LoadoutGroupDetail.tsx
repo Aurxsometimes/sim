@@ -52,12 +52,7 @@ export default function LoadoutGroupDetail({
   onBack: () => void;
   onApplyGroup: () => void;
   onEquipItems: (loadout: Loadout) => void;
-  onCreateInGame: (
-    slot: number,
-    loadout: Loadout,
-    keepEquipped: boolean,
-    skipConfirm?: boolean,
-  ) => void;
+  onCreateInGame: (slot: number, loadout: Loadout, skipConfirm?: boolean) => void;
   onEditSlot: (slot: number) => void;
   onInGameSlotClick: (slot: number) => void;
   onRename: () => void;
@@ -104,13 +99,7 @@ export default function LoadoutGroupDetail({
       key: 'create',
       content: `Create this loadout in game (slot ${selectedSlot + 1})`,
       disabled: !loadout || busy,
-      onSelected: () => loadout && onCreateInGame(selectedSlot, loadout, false),
-    },
-    {
-      key: 'create-equip',
-      content: `Create in game (slot ${selectedSlot + 1}) and keep it equipped`,
-      disabled: !loadout || busy,
-      onSelected: () => loadout && onCreateInGame(selectedSlot, loadout, true),
+      onSelected: () => loadout && onCreateInGame(selectedSlot, loadout),
     },
   ];
 
@@ -289,7 +278,7 @@ export default function LoadoutGroupDetail({
                   onClick={(e) => {
                     // Selected group loadout -> straight into this in-game slot
                     if (loadout && !busy && !e.shiftKey) {
-                      onCreateInGame(slot, loadout, false, true);
+                      onCreateInGame(slot, loadout, true);
                     } else {
                       onInGameSlotClick(slot);
                     }

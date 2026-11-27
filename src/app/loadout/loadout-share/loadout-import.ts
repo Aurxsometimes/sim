@@ -7,6 +7,7 @@ import { Loadout } from 'app/loadout/loadout-types';
 import { DestinyClass } from 'bungie-api-ts/destiny2';
 import { clamp } from 'es-toolkit';
 import { MAX_STAT, MAX_TIER } from '../known-values';
+import { COMPACT_LOADOUT_PARAM, decodeCompactLoadout } from './compact-share';
 // A very permissive regex that allows directly pasted URLs, but also various ways in which
 // people might type it manually (such as a URL-like string with a missing protocol or just the share ID)
 // Hardcoding the lower limit of 7 characters so that a user typing the characters manually doesn't call
@@ -30,6 +31,11 @@ export type DecodedShareLink =
       loadout: Loadout;
     }
   | {
+      /** SIM's compressed loadout link (/loadouts?s=...) */
+      tag: 'compactLoadout';
+      data: string;
+    }
+  | {
       tag: 'urlParameters';
       urlParameters: UrlLoadoutParameters;
     };
@@ -42,6 +48,8 @@ export async function getDecodedLoadout(decodedUrl: DecodedShareLink): Promise<L
     }
     case 'urlLoadout':
       return decodedUrl.loadout;
+    case 'compactLoadout':
+      return decodeUrlCompactLoadout(decodedUrl.data);
     case 'urlParameters': {
       const { classType, notes, parameters } = decodedUrl.urlParameters;
       const loadout = newLoadout('', [], classType);
@@ -63,6 +71,10 @@ export function decodeShareUrl(shareUrl: string): DecodedShareLink | undefined {
   try {
     const { pathname, search } = new URL(shareUrl);
     if (pathname.endsWith('/loadouts')) {
+      const data = new URLSearchParams(search).get(COMPACT_LOADOUT_PARAM);
+      if (data) {
+        return { tag: 'compactLoadout', data };
+      }
       const loadout = decodeUrlLoadout(search);
       if (loadout) {
         return { tag: 'urlLoadout', loadout };
@@ -85,6 +97,11 @@ export function decodeUrlLoadout(search: string): Loadout | undefined {
   }
 }
 
+/** Decode SIM's compressed loadout link data. Throws on error. */
+export async function decodeUrlCompactLoadout(data: string): Promise<Loadout> {
+  return preprocessReceivedLoadout(convertDimApiLoadoutToLoadout(await decodeCompactLoadout(data)));
+}
+
 async function getDimSharedLoadout(shareId: string) {
   const loadout = await getSharedLoadout(shareId);
   return preprocessReceivedLoadout(convertDimApiLoadoutToLoadout(loadout));
@@ -98,7 +115,8 @@ function preprocessReceivedLoadout(loadout: Loadout): Loadout {
   loadout.id = globalThis.crypto.randomUUID();
   loadout.items = loadout.items.map((item) => ({
     ...item,
-    id: item.id === '0' ? generateMissingLoadoutItemId() : item.id,
+    // Shared links leave out item instance IDs
+    id: !item.id || item.id === '0' ? generateMissingLoadoutItemId() : item.id,
     hash: Number(item.hash),
   }));
   for (const constraint of loadout.parameters?.statConstraints ?? []) {

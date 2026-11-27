@@ -2,28 +2,32 @@ import { InGameLoadoutIdentifiers } from '@destinyitemmanager/dim-api-types';
 import { currentAccountSelector } from 'app/accounts/selectors';
 import {
   clearInGameLoadout,
+  editInGameLoadout as editInGameLoadoutApi,
   snapshotInGameLoadout as snapshotInGameLoadoutApi,
 } from 'app/bungie-api/destiny2-api';
 import { D2ManifestDefinitions } from 'app/destiny2/d2-definitions';
-import { allItemsSelector, storesSelector } from 'app/inventory/selectors';
+import {
+  allItemsSelector,
+  createItemContextSelector,
+  storesSelector,
+  unlockedPlugSetItemsSelector,
+} from 'app/inventory/selectors';
 import { DimStore } from 'app/inventory/store-types';
 import { getStore } from 'app/inventory/stores-helpers';
 import { applyLoadout } from 'app/loadout-drawer/loadout-apply';
-import {
-  inGameLoadoutItemsFromEquipped,
-  newLoadout,
-  newLoadoutFromEquipped,
-} from 'app/loadout-drawer/loadout-utils';
+import { inGameLoadoutItemsFromEquipped, newLoadout } from 'app/loadout-drawer/loadout-utils';
 import { d2ManifestSelector } from 'app/manifest/selectors';
-import { ThunkResult } from 'app/store/types';
+import { RootState, ThunkResult } from 'app/store/types';
 import { chainComparator, compareBy } from 'app/utils/comparators';
 import { errorMessage } from 'app/utils/errors';
 import { Observable } from 'app/utils/observable';
 import { createSelector } from 'reselect';
 import { deleteLoadout, updateLoadout } from '../actions';
 import { inGameLoadoutDeleted, inGameLoadoutUpdated } from '../ingame/actions';
+import { implementsDimLoadout } from '../ingame/ingame-loadout-utils';
 import {
   availableLoadoutSlotsSelector,
+  fullyResolveLoadout,
   inGameLoadoutsForCharacterSelector,
 } from '../ingame/selectors';
 import {
@@ -380,15 +384,42 @@ export interface ApplyGroupProgress {
 }
 
 /**
- * Equip a loadout on the character and save it into one in-game loadout slot.
- * Doesn't put the character's previous gear back; callers do that once at the
- * end. Returns a warning if some items couldn't be equipped.
+ * Does this in-game slot already hold the loadout's weapons, armor, mods and subclass setup?
+ * (Uses the same check DIM uses to show which in-game loadouts match a DIM loadout.)
+ */
+function inGameSlotAlreadyHas(
+  state: RootState,
+  characterId: string,
+  inGame: InGameLoadout,
+  loadout: Loadout,
+) {
+  const resolved = fullyResolveLoadout(
+    characterId,
+    loadout,
+    d2ManifestSelector(state),
+    unlockedPlugSetItemsSelector.selector(state, characterId),
+    createItemContextSelector(state),
+    allItemsSelector(state),
+  );
+  return implementsDimLoadout(inGame, resolved.resolvedLoadoutItems, resolved.resolvedMods);
+}
+
+function sameIdentifiers(a: InGameLoadoutIdentifiers, b: InGameLoadoutIdentifiers) {
+  return a.nameHash === b.nameHash && a.colorHash === b.colorHash && a.iconHash === b.iconHash;
+}
+
+/**
+ * Save a loadout into one in-game loadout slot.
+ *
+ * If the slot already has the right gear, it's left alone (only its name/icon is updated if
+ * needed), which is much faster. Otherwise the loadout is equipped and snapshotted into the
+ * slot, and stays equipped afterwards. Returns a warning if some items couldn't be equipped.
  */
 function writeLoadoutToInGameSlot(
   characterId: string,
   index: number,
   loadout: Loadout,
-  report: (step: 'Equipping' | 'Saving') => void,
+  report: (step: 'Equipping' | 'Saving' | 'Renaming') => void,
 ): ThunkResult<string | undefined> {
   return async (dispatch, getState) => {
     const account = currentAccountSelector(getState())!;
@@ -398,6 +429,21 @@ function writeLoadoutToInGameSlot(
       (l) => l.index === index,
     );
     let warning: string | undefined;
+
+    if (existing && inGameSlotAlreadyHas(getState(), characterId, existing, loadout)) {
+      const wanted = slotIdentifiers(loadout);
+      if (wanted && !sameIdentifiers(wanted, existing)) {
+        report('Renaming');
+        const renamed: InGameLoadout = {
+          ...existing,
+          ...wanted,
+          ...resolveInGameLoadoutIdentifiers(defs, wanted),
+        };
+        await editInGameLoadoutApi(account, renamed);
+        dispatch(inGameLoadoutUpdated(renamed));
+      }
+      return undefined;
+    }
 
     report('Equipping');
     await dispatch(applyLoadout(getTargetStore(), loadout));
@@ -443,23 +489,17 @@ function writeLoadoutToInGameSlot(
 }
 
 /**
- * Replace a single in-game loadout slot with a loadout, then (unless
- * keepEquipped) put the character's previous gear back.
+ * Replace a single in-game loadout slot with a loadout. The loadout stays equipped afterwards.
  */
 export function replaceInGameLoadout(
   characterId: string,
   index: number,
   loadout: Loadout,
   progress: Observable<ApplyGroupProgress>,
-  /** Leave the new loadout equipped instead of putting the previous gear back */
-  keepEquipped = false,
 ): ThunkResult<{ warnings: string[] }> {
-  return async (dispatch, getState) => {
-    const getTargetStore = () => getStore(storesSelector(getState()), characterId)!;
+  return async (dispatch) => {
     const warnings: string[] = [];
     const report = (step: string) => progress.next({ step, warnings: [...warnings] });
-    const originalGear = newLoadoutFromEquipped('Before replacing loadout', getTargetStore());
-    originalGear.id = globalThis.crypto.randomUUID();
     try {
       const warning = await dispatch(
         writeLoadoutToInGameSlot(characterId, index, loadout, (step) =>
@@ -472,11 +512,6 @@ export function replaceInGameLoadout(
     } catch (e) {
       report(`Stopped: ${errorMessage(e)}`);
       throw e;
-    } finally {
-      if (!keepEquipped) {
-        report('Re-equipping the gear you had on before');
-        await dispatch(applyLoadout(getTargetStore(), originalGear));
-      }
     }
     report('Done');
     return { warnings };
@@ -497,8 +532,8 @@ export function clearInGameSlot(inGameLoadout: InGameLoadout): ThunkResult {
  *
  * Bungie's API can only save an in-game loadout from what the character is
  * currently wearing, so for each slot we equip the slot's gear, snapshot it
- * into that slot, and move on. Slots that are empty in the group are cleared
- * in game. At the end we re-equip what the character was wearing before.
+ * into that slot, and move on. Slots that already match are skipped, and slots that are
+ * empty in the group are cleared in game. The last slot written stays equipped.
  */
 export function applyLoadoutGroup(
   group: LoadoutGroup,
@@ -507,13 +542,9 @@ export function applyLoadoutGroup(
   return async (dispatch, getState) => {
     const account = currentAccountSelector(getState())!;
     const characterId = group.characterId;
-    const getTargetStore = () => getStore(storesSelector(getState()), characterId)!;
     const slotCount = availableLoadoutSlotsSelector(getState());
     const warnings: string[] = [];
     const report = (step: string) => progress.next({ step, warnings: [...warnings] });
-
-    const originalGear = newLoadoutFromEquipped('Before applying loadout group', getTargetStore());
-    originalGear.id = globalThis.crypto.randomUUID();
 
     try {
       for (let index = 0; index < slotCount; index++) {
@@ -543,9 +574,6 @@ export function applyLoadoutGroup(
     } catch (e) {
       report(`Stopped: ${errorMessage(e)}`);
       throw e;
-    } finally {
-      report('Re-equipping the gear you had on before');
-      await dispatch(applyLoadout(getTargetStore(), originalGear));
     }
 
     report('Done');

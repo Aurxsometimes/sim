@@ -222,8 +222,8 @@ function LoadoutGroupsPage() {
         <br />
         <br />
         This replaces all {slotCount} of your in-game loadout slots (empty slots in the group get
-        cleared). DIM equips each loadout one at a time to save it, so be in orbit or a social
-        space, and give it a minute or two. Your current gear is re-equipped at the end.
+        cleared). Slots that already match are skipped; the rest are equipped one at a time to save
+        them, so be in orbit or a social space. The last one written stays equipped.
       </>,
       { okLabel: 'Apply group' },
     );
@@ -241,12 +241,7 @@ function LoadoutGroupsPage() {
     );
   };
 
-  const handleReplaceInGame = async (
-    slot: number,
-    loadout: Loadout,
-    keepEquipped = false,
-    skipConfirm = false,
-  ) => {
+  const handleReplaceInGame = async (slot: number, loadout: Loadout, skipConfirm = false) => {
     const existing = inGameLoadouts.find((l) => l.index === slot);
     const ok =
       skipConfirm ||
@@ -256,10 +251,8 @@ function LoadoutGroupsPage() {
           {existing ? ` (${existing.name})` : ''} on {selectedStore.name} with "{loadout.name}"?
           <br />
           <br />
-          DIM equips the loadout to save it, so be in orbit or a social space.{' '}
-          {keepEquipped
-            ? 'It stays equipped afterwards.'
-            : 'Your current gear is re-equipped afterwards.'}
+          SIM equips the loadout to save it, so be in orbit or a social space. It stays equipped
+          afterwards.
         </>,
         { okLabel: 'Replace' },
       ));
@@ -272,8 +265,7 @@ function LoadoutGroupsPage() {
         done: `In-game slot ${slot + 1} is now "${loadout.name}"`,
         failed: `Couldn't replace in-game slot ${slot + 1}`,
       },
-      (progress) =>
-        dispatch(replaceInGameLoadout(selectedStore.id, slot, loadout, progress, keepEquipped)),
+      (progress) => dispatch(replaceInGameLoadout(selectedStore.id, slot, loadout, progress)),
     );
     return true;
   };
@@ -359,8 +351,8 @@ function LoadoutGroupsPage() {
           onEquipItems={(loadout) =>
             dispatch(applyLoadout(selectedStore, loadout, { allowUndo: true }))
           }
-          onCreateInGame={(slot, loadout, keepEquipped, skipConfirm) =>
-            handleReplaceInGame(slot, loadout, keepEquipped, skipConfirm)
+          onCreateInGame={(slot, loadout, skipConfirm) =>
+            handleReplaceInGame(slot, loadout, skipConfirm)
           }
           onEditSlot={(slot) => setEditingSlot({ groupId: openedGroup.id, slot })}
           onInGameSlotClick={setEditingInGameSlot}

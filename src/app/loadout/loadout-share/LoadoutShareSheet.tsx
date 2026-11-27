@@ -13,6 +13,7 @@ import AppIcon from 'app/shell/icons/AppIcon';
 import { count } from 'app/utils/collections';
 import { convertToError } from 'app/utils/errors';
 import React, { useEffect, useState } from 'react';
+import { compactLoadoutShareUrl } from './compact-share';
 import * as styles from './LoadoutShareSheet.m.scss';
 
 // Cache shares to loadouts weakly, to cut down on creating shares
@@ -39,12 +40,9 @@ export default function LoadoutShareSheet({
           loadoutShares.get(loadout) ??
           (dimSyncAvailable
             ? await createLoadoutShare(account.membershipId, apiLoadout)
-            : // Without DIM Sync there's no dim.gg short link, so put the whole loadout in the
-              // link. SIM opens these (/loadouts?loadout=...) and can import them from the
-              // Loadouts page's Import button too.
-              `${window.location.origin}${$PUBLIC_PATH}loadouts?loadout=${encodeURIComponent(
-                JSON.stringify(apiLoadout),
-              )}`);
+            : // Without DIM Sync there's no dim.gg short link, so the (compressed) loadout goes
+              // in the link itself. SIM opens these, and the Loadouts page's Import accepts them.
+              await compactLoadoutShareUrl(apiLoadout));
         loadoutShares.set(loadout, shareUrl);
         if (!canceled) {
           setShareUrl(shareUrl);
