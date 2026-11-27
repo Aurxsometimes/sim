@@ -42,3 +42,29 @@ describe('dim.gg loadout share links parsing', () => {
     expect(decoded.loadout.parameters!.mods!.length).not.toBe(0);
   });
 });
+
+describe('SIM loadout links without DIM Sync', () => {
+  it('round-trips a loadout through a /loadouts?loadout= link', () => {
+    const apiLoadout = {
+      id: 'abc',
+      name: 'Dungeon & Raid #1',
+      classType: 1,
+      clearSpace: false,
+      equipped: [{ id: '6917529', hash: 1234 }],
+      unequipped: [],
+      parameters: { mods: [2623485440] },
+    };
+    // Built the same way as LoadoutShareSheet does
+    const url = `https://sim-3sj.pages.dev/loadouts?loadout=${encodeURIComponent(
+      JSON.stringify(apiLoadout),
+    )}`;
+    const decoded = decodeShareUrl(url);
+    if (decoded?.tag !== 'urlLoadout') {
+      throw new Error('not decoded');
+    }
+    expect(decoded.loadout.name).toBe('Dungeon & Raid #1');
+    expect(decoded.loadout.classType).toBe(1);
+    expect(decoded.loadout.items.map((i) => i.hash)).toEqual([1234]);
+    expect(decoded.loadout.parameters?.mods).toEqual([2623485440]);
+  });
+});

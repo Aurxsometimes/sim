@@ -1,5 +1,6 @@
 import { DestinyAccount } from 'app/accounts/destiny-account';
 import { createLoadoutShare } from 'app/dim-api/dim-api';
+import { dimSyncAvailable } from 'app/dim-api/dim-api-helper';
 import Sheet from 'app/dim-ui/Sheet';
 import UserGuideLink from 'app/dim-ui/UserGuideLink';
 import { t } from 'app/i18next-t';
@@ -33,9 +34,17 @@ export default function LoadoutShareSheet({
     let canceled = false;
     (async () => {
       try {
+        const apiLoadout = convertDimLoadoutToApiLoadout(loadout);
         const shareUrl =
           loadoutShares.get(loadout) ??
-          (await createLoadoutShare(account.membershipId, convertDimLoadoutToApiLoadout(loadout)));
+          (dimSyncAvailable
+            ? await createLoadoutShare(account.membershipId, apiLoadout)
+            : // Without DIM Sync there's no dim.gg short link, so put the whole loadout in the
+              // link. SIM opens these (/loadouts?loadout=...) and can import them from the
+              // Loadouts page's Import button too.
+              `${window.location.origin}${$PUBLIC_PATH}loadouts?loadout=${encodeURIComponent(
+                JSON.stringify(apiLoadout),
+              )}`);
         loadoutShares.set(loadout, shareUrl);
         if (!canceled) {
           setShareUrl(shareUrl);
